@@ -1,12 +1,14 @@
+import { Link } from 'react-router-dom'
+
 const Footer = () => {
   return (
     <footer className="py-8 mt-auto text-white bg-gray-800">
       <div className="px-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
           {/* About Section */}
           <div>
             <h3 className="mb-4 text-lg font-bold">CampusBook</h3>
-            <p className="text-sm text-gray-400">
+            <p className="text-sm leading-relaxed text-gray-400">
               Simplifying campus resource booking and optimization for educational institutions.
             </p>
           </div>
@@ -16,19 +18,31 @@ const Footer = () => {
             <h3 className="mb-4 text-lg font-bold">Quick Links</h3>
             <ul className="space-y-2 text-sm">
               <li>
-                <a href="/" className="text-gray-400 transition duration-200 hover:text-white">
+                <Link to="/" className="text-gray-400 transition duration-200 hover:text-white">
                   Home
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="/resources" className="text-gray-400 transition duration-200 hover:text-white">
-                  Resources
-                </a>
+                <Link to="/browse" className="text-gray-400 transition duration-200 hover:text-white">
+                  Browse Resources
+                </Link>
               </li>
               <li>
-                <a href="/about" className="text-gray-400 transition duration-200 hover:text-white">
-                  About Us
-                </a>
+                <button
+                  onClick={() => {
+                    if (window.location.pathname === '/') {
+                      const element = document.getElementById('how-it-works')
+                      if (element) {
+                        element.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                      }
+                    } else {
+                      window.location.href = '/#how-it-works'
+                    }
+                  }}
+                  className="text-gray-400 transition duration-200 hover:text-white"
+                >
+                  How It Works
+                </button>
               </li>
             </ul>
           </div>

@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useState } from 'react'
 
 const Navbar = () => {
@@ -6,10 +6,34 @@ const Navbar = () => {
   const [isResourcesOpen, setIsResourcesOpen] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const navigate = useNavigate()
+  const location = useLocation()
 
   const handleLogout = () => {
     setIsLoggedIn(false)
     navigate('/')
+  }
+
+  const scrollToTop = () => {
+    if (location.pathname !== '/') {
+      navigate('/')
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+    setIsMobileMenuOpen(false)
+  }
+
+  const scrollToHowItWorks = () => {
+    if (location.pathname !== '/') {
+      navigate('/')
+      setTimeout(() => {
+        const element = document.getElementById('how-it-works')
+        element?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 100)
+    } else {
+      const element = document.getElementById('how-it-works')
+      element?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+    setIsMobileMenuOpen(false)
   }
 
   const resourceTypes = [
@@ -26,23 +50,23 @@ const Navbar = () => {
       <div className="px-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link to="/" className="flex items-center space-x-3 group">
-            <div className="flex items-center justify-center transition-all duration-300 shadow-md w-11 h-11 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl group-hover:shadow-lg group-hover:scale-105">
+          <button onClick={scrollToTop} className="flex items-center space-x-3 group">
+            <div className="flex items-center justify-center transition-all duration-300 shadow-md w-11 h-11 rounded-xl bg-gradient-to-br from-blue-600 to-blue-700 group-hover:shadow-lg group-hover:scale-105">
               <span className="text-xl font-bold text-white">CB</span>
             </div>
-            <span className="text-xl font-bold text-transparent bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text">
+            <span className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-blue-800">
               CampusBook
             </span>
-          </Link>
+          </button>
 
           {/* Desktop Navigation Links */}
           <div className="items-center hidden space-x-1 md:flex">
-            <Link 
-              to="/" 
+            <button
+              onClick={scrollToTop}
               className="px-4 py-2 font-medium text-gray-700 transition duration-200 rounded-lg hover:text-blue-600 hover:bg-blue-50"
             >
               Home
-            </Link>
+            </button>
 
             {/* Resources Dropdown */}
             <div 
@@ -67,6 +91,21 @@ const Navbar = () => {
               {/* Dropdown Menu */}
               {isResourcesOpen && (
                 <div className="absolute left-0 w-64 py-2 mt-2 bg-white border border-gray-100 shadow-2xl top-full rounded-xl animate-fadeIn">
+                  <Link
+                    to="/browse-resources"
+                    className="flex items-center px-4 py-3 space-x-3 transition duration-200 hover:bg-blue-50 group"
+                  >
+                    <span className="text-2xl transition-transform duration-200 group-hover:scale-110">
+                      🔍
+                    </span>
+                    <div>
+                      <span className="font-semibold text-gray-700 group-hover:text-blue-600">
+                        Browse All
+                      </span>
+                      <p className="text-xs text-gray-500">View all resources</p>
+                    </div>
+                  </Link>
+                  <hr className="my-2 border-gray-100" />
                   {resourceTypes.map((resource, index) => (
                     <Link
                       key={index}
@@ -85,12 +124,12 @@ const Navbar = () => {
               )}
             </div>
 
-            <Link 
-              to="/about" 
+            <button
+              onClick={scrollToHowItWorks}
               className="px-4 py-2 font-medium text-gray-700 transition duration-200 rounded-lg hover:text-blue-600 hover:bg-blue-50"
             >
-              About
-            </Link>
+              How It Works
+            </button>
           </div>
 
           {/* Auth Buttons */}
@@ -146,9 +185,12 @@ const Navbar = () => {
         {/* Mobile Menu */}
         {isMobileMenuOpen && (
           <div className="py-4 border-t border-gray-100 md:hidden">
-            <Link to="/" className="block px-4 py-2 text-gray-700 rounded-lg hover:bg-blue-50">
+            <button
+              onClick={scrollToTop}
+              className="block w-full px-4 py-2 text-left text-gray-700 rounded-lg hover:bg-blue-50"
+            >
               Home
-            </Link>
+            </button>
             <div className="px-4 py-2">
               <button
                 onClick={() => setIsResourcesOpen(!isResourcesOpen)}
@@ -166,11 +208,20 @@ const Navbar = () => {
               </button>
               {isResourcesOpen && (
                 <div className="mt-2 ml-4 space-y-1">
+                  <Link
+                    to="/browse-resources"
+                    className="flex items-center px-3 py-2 space-x-2 text-gray-600 rounded-lg hover:bg-blue-50"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    <span>🔍</span>
+                    <span>Browse All</span>
+                  </Link>
                   {resourceTypes.map((resource, index) => (
                     <Link
                       key={index}
                       to={resource.path}
                       className="flex items-center px-3 py-2 space-x-2 text-gray-600 rounded-lg hover:bg-blue-50"
+                      onClick={() => setIsMobileMenuOpen(false)}
                     >
                       <span>{resource.icon}</span>
                       <span>{resource.name}</span>
@@ -179,24 +230,42 @@ const Navbar = () => {
                 </div>
               )}
             </div>
-            <Link to="/about" className="block px-4 py-2 text-gray-700 rounded-lg hover:bg-blue-50">
-              About
-            </Link>
+            <button 
+              onClick={scrollToHowItWorks}
+              className="block w-full px-4 py-2 text-left text-gray-700 rounded-lg hover:bg-blue-50"
+            >
+              How It Works
+            </button>
             {!isLoggedIn ? (
               <>
-                <Link to="/login" className="block px-4 py-2 mt-2 text-gray-700 rounded-lg hover:bg-blue-50">
+                <Link 
+                  to="/login" 
+                  className="block px-4 py-2 mt-2 text-gray-700 rounded-lg hover:bg-blue-50"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
                   Login
                 </Link>
-                <Link to="/signup" className="block px-4 py-2 mx-4 mt-2 text-center text-white bg-blue-600 rounded-lg">
+                <Link 
+                  to="/signup" 
+                  className="block px-4 py-2 mx-4 mt-2 text-center text-white bg-blue-600 rounded-lg"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
                   Sign Up
                 </Link>
               </>
             ) : (
               <>
-                <Link to="/dashboard" className="block px-4 py-2 mt-2 text-gray-700 rounded-lg hover:bg-blue-50">
+                <Link 
+                  to="/dashboard" 
+                  className="block px-4 py-2 mt-2 text-gray-700 rounded-lg hover:bg-blue-50"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
                   Dashboard
                 </Link>
-                <button onClick={handleLogout} className="block w-full px-4 py-2 mx-4 mt-2 text-white bg-red-500 rounded-lg">
+                <button 
+                  onClick={handleLogout} 
+                  className="block w-full px-4 py-2 mx-4 mt-2 text-white bg-red-500 rounded-lg"
+                >
                   Logout
                 </button>
               </>
