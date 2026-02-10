@@ -9,7 +9,10 @@ dotenv.config();
 const app = express();
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  credentials: true
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -17,49 +20,52 @@ app.use(express.urlencoded({ extended: true }));
 const connectDB = require('./config/db');
 connectDB();
 
+// Routes
+app.use('/api/auth', require('./routes/authRoutes'));
+// app.use('/api/resources', require('./routes/resourceRoutes')); // Will add next
+// app.use('/api/bookings', require('./routes/bookingRoutes'));   // Will add next
+// app.use('/api/users', require('./routes/userRoutes'));         // Will add next
+
 // Health check route
 app.get('/', (req, res) => {
   res.json({ 
-    message: 'Campus Resource Booking API is running',
+    message: 'Campus Resource Booking API',
     status: 'OK',
+    version: '1.0.0',
     timestamp: new Date().toISOString()
   });
 });
 
-// Test database route
-app.get('/api/test-db', async (req, res) => {
-  try {
-    const User = require('./models/User');
-    const users = await User.find().limit(5);
-    
-    res.json({
-      success: true,
-      message: 'Database connection successful',
-      userCount: users.length,
-      users: users
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Database error',
-      error: error.message
-    });
-  }
+// API documentation endpoint
+app.get('/api', (req, res) => {
+  res.json({
+    message: 'Campus Resource Booking System API',
+    version: '1.0.0',
+    endpoints: {
+      auth: {
+        register: 'POST /api/auth/register',
+        login: 'POST /api/auth/login',
+        getProfile: 'GET /api/auth/me',
+        updateProfile: 'PUT /api/auth/profile',
+        changePassword: 'PUT /api/auth/change-password',
+        forgotPassword: 'POST /api/auth/forgot-password',
+        resetPassword: 'POST /api/auth/reset-password/:token',
+        logout: 'POST /api/auth/logout'
+      }
+    }
+  });
 });
 
 // Error handling middleware
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ 
-    message: 'Something went wrong!', 
-    error: process.env.NODE_ENV === 'development' ? err.message : {} 
-  });
-});
+const { notFound, errorHandler } = require('./middlewares/errorMiddleware');
+app.use(notFound);
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`✅ Server running on port ${PORT}`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV}`);
-  console.log(`📍 API URL: http://localhost:${PORT}`);
+  console.log(`🔗 API URL: http://localhost:${PORT}`);
+  console.log(`📱 Frontend URL: ${process.env.FRONTEND_URL}`);
 });
