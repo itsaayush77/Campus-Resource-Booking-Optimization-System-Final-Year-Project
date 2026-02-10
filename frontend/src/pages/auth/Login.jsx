@@ -1,122 +1,126 @@
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import toast from 'react-hot-toast';
 
 const Login = () => {
   const [formData, setFormData] = useState({
     email: '',
     password: ''
-  })
-  const navigate = useNavigate()
+  });
+  const [loading, setLoading] = useState(false);
+  const { login } = useAuth();
+  const navigate = useNavigate();
 
   const handleChange = (e) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value
-    })
-  }
+    });
+  };
 
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    // API call will be added later
-    console.log('Login data:', formData)
-    // Temporary navigation
-    navigate('/dashboard')
-  }
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const response = await fetch('http://localhost:5000/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formData)
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        login(data.user, data.token);
+        toast.success('Login successful!');
+        navigate('/dashboard');
+      } else {
+        toast.error(data.message || 'Login failed');
+      }
+    } catch (error) {
+      toast.error('Login failed. Please try again.');
+      console.error('Login error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <div className="flex items-center justify-center min-h-screen px-4 py-8 sm:py-12 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
-      <div className="w-full max-w-md">
-        {/* Logo/Header */}
-        <div className="mb-8 text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 mb-4 shadow-lg bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl">
-            <span className="text-2xl font-bold text-white">CB</span>
+    <div className="flex items-center justify-center min-h-screen px-4 py-12 bg-gray-50">
+      <div className="w-full max-w-md p-8 bg-white rounded-lg shadow-lg">
+        <h2 className="mb-8 text-3xl font-bold text-center text-gray-900">
+          Sign In
+        </h2>
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div>
+            <label className="block mb-2 text-sm font-medium text-gray-700">
+              Email Address
+            </label>
+            <input
+              type="email"
+              name="email"
+              required
+              value={formData.email}
+              onChange={handleChange}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="you@example.com"
+            />
           </div>
-          <h2 className="text-3xl font-bold text-gray-900 sm:text-4xl">Welcome Back</h2>
-          <p className="mt-2 text-gray-600">Login to access your dashboard</p>
-        </div>
 
-        {/* Form Card */}
-        <div className="p-6 bg-white shadow-xl rounded-2xl sm:p-8">
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label htmlFor="email" className="block mb-2 text-sm font-semibold text-gray-700">
-                Email Address
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
-                  </svg>
-                </div>
-                <input
-                  type="email"
-                  id="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  required
-                  className="w-full py-3 pl-10 pr-4 transition duration-200 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="you@example.com"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label htmlFor="password" className="block mb-2 text-sm font-semibold text-gray-700">
-                Password
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                  </svg>
-                </div>
-                <input
-                  type="password"
-                  id="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  required
-                  className="w-full py-3 pl-10 pr-4 transition duration-200 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="••••••••"
-                />
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <label className="flex items-center cursor-pointer">
-                <input 
-                  type="checkbox" 
-                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" 
-                />
-                <span className="ml-2 text-sm text-gray-600">Remember me</span>
-              </label>
-              <a href="#" className="text-sm font-medium text-blue-600 transition duration-200 hover:text-blue-700">
-                Forgot password?
-              </a>
-            </div>
-
-            <button
-              type="submit"
-              className="w-full px-4 py-3 font-semibold text-white transition-all duration-200 transform rounded-lg shadow-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 hover:shadow-xl"
-            >
-              Login
-            </button>
-          </form>
-
-          <div className="mt-6 text-center">
-            <p className="text-sm text-gray-600">
-              Don't have an account?{' '}
-              <Link to="/signup" className="font-semibold text-blue-600 transition duration-200 hover:text-blue-700">
-                Sign Up
-              </Link>
-            </p>
+          <div>
+            <label className="block mb-2 text-sm font-medium text-gray-700">
+              Password
+            </label>
+            <input
+              type="password"
+              name="password"
+              required
+              value={formData.password}
+              onChange={handleChange}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="••••••••"
+            />
           </div>
-        </div>
+
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              />
+              <label className="block ml-2 text-sm text-gray-900">
+                Remember me
+              </label>
+            </div>
+
+            <Link to="/forgot-password" className="text-sm text-blue-600 hover:text-blue-500">
+              Forgot password?
+            </Link>
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full px-4 py-3 font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-gray-400 disabled:cursor-not-allowed"
+          >
+            {loading ? 'Signing in...' : 'Sign In'}
+          </button>
+        </form>
+
+        <p className="mt-6 text-sm text-center text-gray-600">
+          Don't have an account?{' '}
+          <Link to="/signup" className="font-medium text-blue-600 hover:text-blue-500">
+            Sign up
+          </Link>
+        </p>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default Login
+export default Login;
