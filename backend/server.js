@@ -22,8 +22,9 @@ connectDB();
 
 // Routes
 app.use('/api/auth', require('./routes/authRoutes'));
-// app.use('/api/resources', require('./routes/resourceRoutes')); // Will add next
-// app.use('/api/bookings', require('./routes/bookingRoutes'));   // Will add next
+app.use('/api/resources', require('./routes/resourceRoutes'));
+app.use('/api/bookings', require('./routes/bookingRoutes'));
+app.use('/api/admin', require('./routes/adminRoutes'));
 // app.use('/api/users', require('./routes/userRoutes'));         // Will add next
 
 // Health check route
