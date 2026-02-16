@@ -81,15 +81,15 @@ const bookingSchema = new mongoose.Schema({
 });
 
 // Update timestamp
-bookingSchema.pre('save', function(next) {
+bookingSchema.pre('save', function() {
   this.updatedAt = Date.now();
-  next();
 });
 
 // Indexes for performance
 bookingSchema.index({ userId: 1, status: 1 });
 bookingSchema.index({ resourceId: 1, status: 1 });
 bookingSchema.index({ startTime: 1, endTime: 1 });
+bookingSchema.index({ status: 1, startTime: 1 });
 
 // Method to check if booking can be cancelled
 bookingSchema.methods.canCancel = function() {

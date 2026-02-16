@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const { startNoShowScheduler } = require('./jobs/noShowScheduler');
 
 // Load environment variables
 dotenv.config();
@@ -25,7 +26,12 @@ app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/resources', require('./routes/resourceRoutes'));
 app.use('/api/bookings', require('./routes/bookingRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
+app.use('/api/notifications', require('./routes/notificationRoutes'));
 // app.use('/api/users', require('./routes/userRoutes'));         // Will add next
+
+if (process.env.NODE_ENV !== 'test') {
+  startNoShowScheduler();
+}
 
 // Health check route
 app.get('/', (req, res) => {
@@ -65,8 +71,8 @@ app.use(errorHandler);
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-  console.log(`✅ Server running on port ${PORT}`);
-  console.log(`🌍 Environment: ${process.env.NODE_ENV}`);
-  console.log(`🔗 API URL: http://localhost:${PORT}`);
-  console.log(`📱 Frontend URL: ${process.env.FRONTEND_URL}`);
+  console.log(` Server running on port ${PORT}`);
+  console.log(` Environment: ${process.env.NODE_ENV}`);
+  console.log(` API URL: http://localhost:${PORT}`);
+  console.log(` Frontend URL: ${process.env.FRONTEND_URL}`);
 });

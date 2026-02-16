@@ -2,8 +2,11 @@ const crypto = require('crypto');
 const mongoose = require('mongoose');
 const Booking = require('../models/Bookings');
 const Resource = require('../models/Resource');
+const { createNotification } = require('../services/notificationService');
+const { markBookingAsNoShow } = require('../services/noShowService');
 
 const ACTIVE_BOOKING_STATUSES = ['pending', 'approved'];
+const isNextFunction = (next) => typeof next === 'function';
 
 const isValidDate = (date) => date instanceof Date && !Number.isNaN(date.getTime());
 
@@ -32,9 +35,9 @@ const hasConflict = async (resourceId, startTime, endTime, ignoreBookingId = nul
 // @desc    Create booking
 // @route   POST /api/bookings
 // @access  Private
-exports.createBooking = async (req, res) => {
+exports.createBooking = async (req, res, next) => {
   try {
-    const { resourceId, startTime, endTime, purpose, expectedAttendees, notes } = req.body;
+    const { resourceId, startTime, endTime, purpose, expectedAttendees, notes } = req.body || {};
 
     if (!resourceId || !startTime || !endTime || !purpose || !expectedAttendees) {
       return res.status(400).json({
@@ -126,6 +129,10 @@ exports.createBooking = async (req, res) => {
       booking: populatedBooking
     });
   } catch (error) {
+    if (isNextFunction(next)) {
+      return next(error);
+    }
+
     return res.status(500).json({
       success: false,
       message: 'Failed to create booking',
@@ -192,7 +199,7 @@ exports.getMyBookingHistory = async (req, res) => {
 exports.cancelBooking = async (req, res) => {
   try {
     const { id } = req.params;
-    const { reason } = req.body;
+    const { reason } = req.body || {};
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
@@ -228,6 +235,18 @@ exports.cancelBooking = async (req, res) => {
     booking.cancelledAt = new Date();
     booking.cancellationReason = reason || 'Cancelled by user';
     await booking.save();
+
+    try {
+      await createNotification({
+        userId: booking.userId,
+        type: 'booking_cancelled',
+        title: 'Booking Cancelled',
+        message: 'Your booking has been cancelled.',
+        relatedBooking: booking._id
+      });
+    } catch (notificationError) {
+      console.error('Failed to create cancellation notification:', notificationError.message);
+    }
 
     return res.status(200).json({
       success: true,
@@ -329,6 +348,18 @@ exports.approveBooking = async (req, res) => {
     booking.qrCode = `BK-${booking._id.toString()}-${crypto.randomBytes(12).toString('hex')}`;
     await booking.save();
 
+    try {
+      await createNotification({
+        userId: booking.userId,
+        type: 'booking_approved',
+        title: 'Booking Approved',
+        message: 'Your booking request has been approved.',
+        relatedBooking: booking._id
+      });
+    } catch (notificationError) {
+      console.error('Failed to create approval notification:', notificationError.message);
+    }
+
     return res.status(200).json({
       success: true,
       message: 'Booking approved successfully',
@@ -349,7 +380,7 @@ exports.approveBooking = async (req, res) => {
 exports.rejectBooking = async (req, res) => {
   try {
     const { id } = req.params;
-    const { reason } = req.body;
+    const { reason } = req.body || {};
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
@@ -381,6 +412,18 @@ exports.rejectBooking = async (req, res) => {
     booking.qrCodeImage = null;
     await booking.save();
 
+    try {
+      await createNotification({
+        userId: booking.userId,
+        type: 'booking_rejected',
+        title: 'Booking Rejected',
+        message: booking.rejectionReason || 'Your booking request was rejected.',
+        relatedBooking: booking._id
+      });
+    } catch (notificationError) {
+      console.error('Failed to create rejection notification:', notificationError.message);
+    }
+
     return res.status(200).json({
       success: true,
       message: 'Booking rejected successfully',
@@ -390,6 +433,156 @@ exports.rejectBooking = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to reject booking',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Check in to approved booking with QR token
+// @route   POST /api/bookings/:id/check-in
+// @access  Private
+exports.checkInBooking = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { token } = req.body || {};
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid booking ID'
+      });
+    }
+
+    const booking = await Booking.findById(id);
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: 'Booking not found'
+      });
+    }
+
+    const isAdmin = req.user.role === 'admin';
+    const isOwner = booking.userId.toString() === req.user._id.toString();
+    if (!isAdmin && !isOwner) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not allowed to check in for this booking'
+      });
+    }
+
+    if (booking.checkInTime || booking.status === 'completed') {
+      return res.status(400).json({
+        success: false,
+        message: 'Booking is already checked in'
+      });
+    }
+
+    if (booking.status !== 'approved') {
+      return res.status(400).json({
+        success: false,
+        message: `Only approved bookings can be checked in. Current status: ${booking.status}`
+      });
+    }
+
+    if (!token || token !== booking.qrCode) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid check-in token'
+      });
+    }
+
+    const now = new Date();
+    const bookingStartTime = new Date(booking.startTime);
+    const bookingEndTime = new Date(booking.endTime);
+    const checkInOpenTime = new Date(bookingStartTime.getTime() - 15 * 60 * 1000);
+    if (now < checkInOpenTime || now > bookingEndTime) {
+      return res.status(400).json({
+        success: false,
+        message: 'Check-in is only allowed from 15 minutes before start time until end time'
+      });
+    }
+
+    booking.checkInTime = now;
+    booking.status = 'completed';
+    await booking.save();
+
+    const updatedBooking = await Booking.findById(booking._id)
+      .populate('resourceId', 'name location capacity type category')
+      .populate('userId', 'name email');
+
+    return res.status(200).json({
+      success: true,
+      message: 'Check-in successful',
+      booking: updatedBooking
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to check in booking',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Mark approved booking as no-show
+// @route   PATCH /api/admin/bookings/:id/mark-no-show
+// @access  Private/Admin
+exports.markNoShow = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid booking ID'
+      });
+    }
+
+    const booking = await Booking.findById(id);
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: 'Booking not found'
+      });
+    }
+
+    if (booking.status !== 'approved') {
+      return res.status(400).json({
+        success: false,
+        message: `Only approved bookings can be marked as no-show. Current status: ${booking.status}`
+      });
+    }
+
+    if (booking.checkInTime) {
+      return res.status(400).json({
+        success: false,
+        message: 'Booking already has check-in time and cannot be marked as no-show'
+      });
+    }
+
+    const result = await markBookingAsNoShow(booking._id);
+    if (!result.updated) {
+      return res.status(400).json({
+        success: false,
+        message: 'Booking could not be marked as no-show'
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Booking marked as no-show',
+      booking: result.booking,
+      user: {
+        id: result.user?._id,
+        noShowCount: result.user?.noShowCount,
+        isSuspended: result.user?.isSuspended,
+        suspendedUntil: result.user?.suspendedUntil
+      }
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to mark booking as no-show',
       error: error.message
     });
   }

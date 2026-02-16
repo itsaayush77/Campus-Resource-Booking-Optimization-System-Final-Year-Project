@@ -73,9 +73,8 @@ const resourceSchema = new mongoose.Schema({
 });
 
 // Update timestamp
-resourceSchema.pre('save', function(next) {
+resourceSchema.pre('save', function() {
   this.updatedAt = Date.now();
-  next();
 });
 
 // Index for faster searches
