@@ -1,16 +1,22 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
+import { useAuth } from '../context/AuthContext'
+import toast from 'react-hot-toast'
 
 const Navbar = () => {
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [isResourcesOpen, setIsResourcesOpen] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const { user, logout } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
+  const dropdownRef = useRef(null)
+  const timeoutRef = useRef(null)
 
   const handleLogout = () => {
-    setIsLoggedIn(false)
+    logout()
+    toast.success('Logged out successfully!')
     navigate('/')
+    setIsMobileMenuOpen(false)
   }
 
   const scrollToTop = () => {
@@ -36,19 +42,34 @@ const Navbar = () => {
     setIsMobileMenuOpen(false)
   }
 
+  // Fix dropdown disappearing - use timeout to delay close
+  const handleMouseEnter = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current)
+    }
+    setIsResourcesOpen(true)
+  }
+
+  const handleMouseLeave = () => {
+    timeoutRef.current = setTimeout(() => {
+      setIsResourcesOpen(false)
+    }, 150) // small delay prevents flicker
+  }
+
   const resourceTypes = [
-    { name: 'Study Rooms', icon: '📚', path: '/resources/study-rooms' },
-    { name: 'Labs', icon: '🔬', path: '/resources/labs' },
-    { name: 'Equipment', icon: '💻', path: '/resources/equipment' },
-    { name: 'Meeting Rooms', icon: '🏢', path: '/resources/meeting-rooms' },
-    { name: 'Sports Facilities', icon: '⚽', path: '/resources/sports' },
-    { name: 'Auditoriums', icon: '🎭', path: '/resources/auditoriums' }
+    { name: 'Study Rooms', icon: '📚', path: '/resources?type=study_room' },
+    { name: 'Labs', icon: '🔬', path: '/resources?type=lab' },
+    { name: 'Equipment', icon: '💻', path: '/resources?type=equipment' },
+    { name: 'Meeting Rooms', icon: '🏢', path: '/resources?type=meeting_room' },
+    { name: 'Sports Facilities', icon: '⚽', path: '/resources?type=sports_facility' },
+    { name: 'Auditoriums', icon: '🎭', path: '/resources?type=auditorium' }
   ]
 
   return (
     <nav className="sticky top-0 z-50 bg-white border-b-2 border-blue-100 shadow-lg">
       <div className="px-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
+
           {/* Logo */}
           <button onClick={scrollToTop} className="flex items-center space-x-3 group">
             <div className="flex items-center justify-center transition-all duration-300 shadow-md w-11 h-11 rounded-xl bg-gradient-to-br from-blue-600 to-blue-700 group-hover:shadow-lg group-hover:scale-105">
@@ -59,7 +80,7 @@ const Navbar = () => {
             </span>
           </button>
 
-          {/* Desktop Navigation Links */}
+          {/* Desktop Navigation */}
           <div className="items-center hidden space-x-1 md:flex">
             <button
               onClick={scrollToTop}
@@ -68,58 +89,62 @@ const Navbar = () => {
               Home
             </button>
 
-            {/* Resources Dropdown */}
-            <div 
+            {/* Resources Dropdown - Fixed */}
+            <div
               className="relative"
-              onMouseEnter={() => setIsResourcesOpen(true)}
-              onMouseLeave={() => setIsResourcesOpen(false)}
+              ref={dropdownRef}
+              onMouseEnter={handleMouseEnter}
+              onMouseLeave={handleMouseLeave}
             >
-              <button
-                className="flex items-center px-4 py-2 space-x-1 font-medium text-gray-700 transition duration-200 rounded-lg hover:text-blue-600 hover:bg-blue-50"
-              >
+              <button className="flex items-center px-4 py-2 space-x-1 font-medium text-gray-700 transition duration-200 rounded-lg hover:text-blue-600 hover:bg-blue-50">
                 <span>Resources</span>
-                <svg 
-                  className={`w-4 h-4 transition-transform duration-200 ${isResourcesOpen ? 'rotate-180' : ''}`} 
-                  fill="none" 
-                  stroke="currentColor" 
+                <svg
+                  className={`w-4 h-4 transition-transform duration-200 ${isResourcesOpen ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
                   viewBox="0 0 24 24"
                 >
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
 
-              {/* Dropdown Menu */}
+              {/* Dropdown - Fixed gap issue with pt-2 */}
               {isResourcesOpen && (
-                <div className="absolute left-0 w-64 py-2 mt-2 bg-white border border-gray-100 shadow-2xl top-full rounded-xl animate-fadeIn">
-                  <Link
-                    to="/browse-resources"
-                    className="flex items-center px-4 py-3 space-x-3 transition duration-200 hover:bg-blue-50 group"
-                  >
-                    <span className="text-2xl transition-transform duration-200 group-hover:scale-110">
-                      🔍
-                    </span>
-                    <div>
-                      <span className="font-semibold text-gray-700 group-hover:text-blue-600">
-                        Browse All
-                      </span>
-                      <p className="text-xs text-gray-500">View all resources</p>
-                    </div>
-                  </Link>
-                  <hr className="my-2 border-gray-100" />
-                  {resourceTypes.map((resource, index) => (
+                <div
+                  className="absolute left-0 w-64 bg-white border border-gray-100 shadow-2xl top-full rounded-xl"
+                  style={{ paddingTop: '8px' }}
+                  onMouseEnter={handleMouseEnter}
+                  onMouseLeave={handleMouseLeave}
+                >
+                  <div className="py-2">
                     <Link
-                      key={index}
-                      to={resource.path}
+                      to="/resources"
+                      onClick={() => setIsResourcesOpen(false)}
                       className="flex items-center px-4 py-3 space-x-3 transition duration-200 hover:bg-blue-50 group"
                     >
-                      <span className="text-2xl transition-transform duration-200 group-hover:scale-110">
-                        {resource.icon}
-                      </span>
-                      <span className="font-medium text-gray-700 group-hover:text-blue-600">
-                        {resource.name}
-                      </span>
+                      <span className="text-2xl transition-transform duration-200 group-hover:scale-110">🔍</span>
+                      <div>
+                        <span className="font-semibold text-gray-700 group-hover:text-blue-600">Browse All</span>
+                        <p className="text-xs text-gray-500">View all resources</p>
+                      </div>
                     </Link>
-                  ))}
+                    <hr className="my-2 border-gray-100" />
+                    {resourceTypes.map((resource, index) => (
+                      <Link
+                        key={index}
+                        to={resource.path}
+                        onClick={() => setIsResourcesOpen(false)}
+                        className="flex items-center px-4 py-3 space-x-3 transition duration-200 hover:bg-blue-50 group"
+                      >
+                        <span className="text-2xl transition-transform duration-200 group-hover:scale-110">
+                          {resource.icon}
+                        </span>
+                        <span className="font-medium text-gray-700 group-hover:text-blue-600">
+                          {resource.name}
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -130,11 +155,43 @@ const Navbar = () => {
             >
               How It Works
             </button>
+
+            {/* Show Dashboard link when logged in */}
+            {user && (
+              <>
+                <Link
+                  to="/dashboard"
+                  className={`px-4 py-2 font-medium transition duration-200 rounded-lg hover:text-blue-600 hover:bg-blue-50 ${
+                    location.pathname === '/dashboard' ? 'text-blue-600 bg-blue-50' : 'text-gray-700'
+                  }`}
+                >
+                  Dashboard
+                </Link>
+                <Link
+                  to="/my-bookings"
+                  className={`px-4 py-2 font-medium transition duration-200 rounded-lg hover:text-blue-600 hover:bg-blue-50 ${
+                    location.pathname === '/my-bookings' ? 'text-blue-600 bg-blue-50' : 'text-gray-700'
+                  }`}
+                >
+                  My Bookings
+                </Link>
+                {user.role === 'admin' && (
+                  <Link
+                    to="/admin"
+                    className={`px-4 py-2 font-medium transition duration-200 rounded-lg hover:text-blue-600 hover:bg-blue-50 ${
+                      location.pathname.startsWith('/admin') ? 'text-blue-600 bg-blue-50' : 'text-gray-700'
+                    }`}
+                  >
+                    Admin
+                  </Link>
+                )}
+              </>
+            )}
           </div>
 
           {/* Auth Buttons */}
           <div className="items-center hidden space-x-3 md:flex">
-            {!isLoggedIn ? (
+            {!user ? (
               <>
                 <Link
                   to="/login"
@@ -150,20 +207,34 @@ const Navbar = () => {
                 </Link>
               </>
             ) : (
-              <>
+              <div className="flex items-center space-x-3">
+                {/* User Info */}
+                <div className="flex items-center px-3 py-1 space-x-2 rounded-lg bg-blue-50">
+                  <div className="flex items-center justify-center w-8 h-8 bg-blue-600 rounded-full">
+                    <span className="text-sm font-bold text-white">
+                      {user.name?.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-semibold text-gray-700">{user.name}</span>
+                    <span className="text-xs text-blue-600 capitalize">{user.role}</span>
+                  </div>
+                </div>
+
                 <Link
-                  to="/dashboard"
-                  className="px-5 py-2 font-semibold text-gray-700 transition duration-200 hover:text-blue-600"
+                  to="/profile"
+                  className="px-4 py-2 font-medium text-gray-700 transition duration-200 rounded-lg hover:text-blue-600 hover:bg-blue-50"
                 >
-                  Dashboard
+                  Profile
                 </Link>
+
                 <button
                   onClick={handleLogout}
-                  className="px-6 py-2.5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg hover:from-red-600 hover:to-red-700 transition-all duration-200 shadow-md hover:shadow-lg font-semibold"
+                  className="px-5 py-2 font-semibold text-white transition-all duration-200 rounded-lg shadow-md bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700"
                 >
                   Logout
                 </button>
-              </>
+              </div>
             )}
           </div>
 
@@ -191,16 +262,18 @@ const Navbar = () => {
             >
               Home
             </button>
+
+            {/* Mobile Resources Dropdown */}
             <div className="px-4 py-2">
               <button
                 onClick={() => setIsResourcesOpen(!isResourcesOpen)}
                 className="flex items-center justify-between w-full font-medium text-left text-gray-700"
               >
                 Resources
-                <svg 
+                <svg
                   className={`w-4 h-4 transition-transform ${isResourcesOpen ? 'rotate-180' : ''}`}
-                  fill="none" 
-                  stroke="currentColor" 
+                  fill="none"
+                  stroke="currentColor"
                   viewBox="0 0 24 24"
                 >
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -209,7 +282,7 @@ const Navbar = () => {
               {isResourcesOpen && (
                 <div className="mt-2 ml-4 space-y-1">
                   <Link
-                    to="/browse-resources"
+                    to="/resources"
                     className="flex items-center px-3 py-2 space-x-2 text-gray-600 rounded-lg hover:bg-blue-50"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
@@ -230,23 +303,53 @@ const Navbar = () => {
                 </div>
               )}
             </div>
-            <button 
+
+            <button
               onClick={scrollToHowItWorks}
               className="block w-full px-4 py-2 text-left text-gray-700 rounded-lg hover:bg-blue-50"
             >
               How It Works
             </button>
-            {!isLoggedIn ? (
+
+            {user && (
               <>
-                <Link 
-                  to="/login" 
+                <Link
+                  to="/dashboard"
+                  className="block px-4 py-2 text-gray-700 rounded-lg hover:bg-blue-50"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  Dashboard
+                </Link>
+                <Link
+                  to="/my-bookings"
+                  className="block px-4 py-2 text-gray-700 rounded-lg hover:bg-blue-50"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  My Bookings
+                </Link>
+                {user.role === 'admin' && (
+                  <Link
+                    to="/admin"
+                    className="block px-4 py-2 text-gray-700 rounded-lg hover:bg-blue-50"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Admin Panel
+                  </Link>
+                )}
+              </>
+            )}
+
+            {!user ? (
+              <>
+                <Link
+                  to="/login"
                   className="block px-4 py-2 mt-2 text-gray-700 rounded-lg hover:bg-blue-50"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   Login
                 </Link>
-                <Link 
-                  to="/signup" 
+                <Link
+                  to="/signup"
                   className="block px-4 py-2 mx-4 mt-2 text-center text-white bg-blue-600 rounded-lg"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
@@ -254,21 +357,32 @@ const Navbar = () => {
                 </Link>
               </>
             ) : (
-              <>
-                <Link 
-                  to="/dashboard" 
-                  className="block px-4 py-2 mt-2 text-gray-700 rounded-lg hover:bg-blue-50"
+              <div className="px-4 mt-2">
+                <div className="flex items-center p-2 mb-3 space-x-2 rounded-lg bg-blue-50">
+                  <div className="flex items-center justify-center w-8 h-8 bg-blue-600 rounded-full">
+                    <span className="text-sm font-bold text-white">
+                      {user.name?.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold">{user.name}</p>
+                    <p className="text-xs text-blue-600 capitalize">{user.role}</p>
+                  </div>
+                </div>
+                <Link
+                  to="/profile"
+                  className="block px-4 py-2 text-gray-700 rounded-lg hover:bg-blue-50"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
-                  Dashboard
+                  Profile
                 </Link>
-                <button 
-                  onClick={handleLogout} 
-                  className="block w-full px-4 py-2 mx-4 mt-2 text-white bg-red-500 rounded-lg"
+                <button
+                  onClick={handleLogout}
+                  className="block w-full px-4 py-2 mt-2 text-left text-white bg-red-500 rounded-lg"
                 >
                   Logout
                 </button>
-              </>
+              </div>
             )}
           </div>
         )}

@@ -103,32 +103,43 @@ const Signup = () => {
           </div>
 
           <div>
-            <label className="block mb-2 text-sm font-medium text-gray-700">
-              Phone Number
-            </label>
-            <input
-              type="tel"
-              name="phoneNumber"
-              value={formData.phoneNumber}
-              onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="9876543210"
-            />
-          </div>
+  <label className="block text-sm font-medium text-gray-700 mb-2">
+    Phone Number <span className="text-gray-400 text-xs">(Optional)</span>
+  </label>
+  <input
+    type="tel"
+    name="phoneNumber"
+    value={formData.phoneNumber}
+    onChange={handleChange}
+    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+    placeholder=""
+  />
+</div>
 
-          <div>
-            <label className="block mb-2 text-sm font-medium text-gray-700">
-              Department
-            </label>
-            <input
-              type="text"
-              name="department"
-              value={formData.department}
-              onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Computer Science"
-            />
-          </div>
+<div>
+  <label className="block text-sm font-medium text-gray-700 mb-2">
+    Department <span className="text-gray-400 text-xs">(Optional)</span>
+  </label>
+  <select
+    name="department"
+    value={formData.department}
+    onChange={handleChange}
+    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+  >
+    <option value="">Select Department</option>
+    <option value="Computer Science">Computer Science</option>
+    <option value="Information Technology">Information Technology</option>
+    <option value="Software Engineering">Software Engineering</option>
+    <option value="Business Administration">Business Administration</option>
+    <option value="Civil Engineering">Civil Engineering</option>
+    <option value="Electrical Engineering">Electrical Engineering</option>
+    <option value="Mechanical Engineering">Mechanical Engineering</option>
+    <option value="Mathematics">Mathematics</option>
+    <option value="Physics">Physics</option>
+    <option value="Chemistry">Chemistry</option>
+    <option value="Other">Other</option>
+  </select>
+</div>
 
           <div>
             <label className="block mb-2 text-sm font-medium text-gray-700">
