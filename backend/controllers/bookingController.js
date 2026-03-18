@@ -524,7 +524,7 @@ exports.checkInBooking = async (req, res) => {
   }
 };
 
-// @desc    Mark approved booking as no-show
+//   Mark approved booking as no-show
 // @route   PATCH /api/admin/bookings/:id/mark-no-show
 // @access  Private/Admin
 exports.markNoShow = async (req, res) => {

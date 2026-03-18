@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { forgotPassword as forgotPasswordApi } from '../../api/authApi';
 import toast from 'react-hot-toast';
 
 const ForgotPassword = () => {
@@ -12,15 +13,7 @@ const ForgotPassword = () => {
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/forgot-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ email })
-      });
-
-      const data = await response.json();
+      const data = await forgotPasswordApi(email);
 
       if (data.success) {
         toast.success('Reset token generated! Check below.');
