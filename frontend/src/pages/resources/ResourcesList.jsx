@@ -1,74 +1,65 @@
-import { useParams } from 'react-router-dom'
-import { useState } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { getAllResources } from '../api/resourceApi'
+import toast from 'react-hot-toast'
 
 const ResourcesList = () => {
   const { type } = useParams()
+  const navigate = useNavigate()
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCapacity, setSelectedCapacity] = useState('all')
+  const [resources, setResources] = useState([])
+  const [loading, setLoading] = useState(true)
 
-  // Mock data - will be replaced with API calls later
-  const resourceData = {
-    'study-rooms': {
-      title: 'Study Rooms',
-      icon: '📚',
-      resources: [
-        { id: 1, name: 'Study Room A1', capacity: 4, floor: '1st Floor', available: true, amenities: ['Whiteboard', 'WiFi', 'Power Outlets'] },
-        { id: 2, name: 'Study Room A2', capacity: 6, floor: '1st Floor', available: true, amenities: ['Whiteboard', 'WiFi', 'Projector'] },
-        { id: 3, name: 'Study Room B1', capacity: 8, floor: '2nd Floor', available: false, amenities: ['Whiteboard', 'WiFi', 'TV Screen'] },
-        { id: 4, name: 'Study Room B2', capacity: 4, floor: '2nd Floor', available: true, amenities: ['Whiteboard', 'WiFi'] },
-      ]
-    },
-    'labs': {
-      title: 'Laboratory Facilities',
-      icon: '🔬',
-      resources: [
-        { id: 1, name: 'Computer Lab 1', capacity: 30, floor: '3rd Floor', available: true, amenities: ['30 PCs', 'Projector', 'WiFi'] },
-        { id: 2, name: 'Computer Lab 2', capacity: 25, floor: '3rd Floor', available: false, amenities: ['25 PCs', 'Projector'] },
-        { id: 3, name: 'Physics Lab', capacity: 20, floor: '4th Floor', available: true, amenities: ['Lab Equipment', 'Safety Gear'] },
-        { id: 4, name: 'Chemistry Lab', capacity: 20, floor: '4th Floor', available: true, amenities: ['Lab Equipment', 'Fume Hood'] },
-      ]
-    },
-    'equipment': {
-      title: 'Equipment',
-      icon: '💻',
-      resources: [
-        { id: 1, name: 'Projector Set', capacity: 1, location: 'Equipment Room', available: true, amenities: ['HDMI', 'Remote', 'Cables'] },
-        { id: 2, name: 'Laptop - Dell', capacity: 1, location: 'IT Department', available: true, amenities: ['Charger', 'Mouse'] },
-        { id: 3, name: 'Camera Kit', capacity: 1, location: 'Media Room', available: false, amenities: ['Tripod', 'SD Card', 'Batteries'] },
-        { id: 4, name: 'Microphone Set', capacity: 1, location: 'Media Room', available: true, amenities: ['Stand', 'Cables', 'Pop Filter'] },
-      ]
-    },
-    'meeting-rooms': {
-      title: 'Meeting Rooms',
-      icon: '🏢',
-      resources: [
-        { id: 1, name: 'Conference Room A', capacity: 20, floor: '5th Floor', available: true, amenities: ['Projector', 'Whiteboard', 'Video Conf'] },
-        { id: 2, name: 'Conference Room B', capacity: 15, floor: '5th Floor', available: true, amenities: ['TV Screen', 'Whiteboard'] },
-        { id: 3, name: 'Board Room', capacity: 12, floor: '6th Floor', available: false, amenities: ['Projector', 'Video Conf', 'Coffee'] },
-      ]
-    },
-    'sports': {
-      title: 'Sports Facilities',
-      icon: '⚽',
-      resources: [
-        { id: 1, name: 'Basketball Court', capacity: 20, location: 'Sports Complex', available: true, amenities: ['Balls', 'Scoreboard'] },
-        { id: 2, name: 'Tennis Court', capacity: 4, location: 'Sports Complex', available: true, amenities: ['Nets', 'Rackets'] },
-        { id: 3, name: 'Badminton Court', capacity: 4, location: 'Indoor Arena', available: false, amenities: ['Nets', 'Shuttles'] },
-      ]
-    },
-    'auditoriums': {
-      title: 'Auditoriums',
-      icon: '🎭',
-      resources: [
-        { id: 1, name: 'Main Auditorium', capacity: 500, floor: 'Ground Floor', available: true, amenities: ['Stage', 'Sound System', 'Projector', 'AC'] },
-        { id: 2, name: 'Mini Auditorium', capacity: 150, floor: '2nd Floor', available: true, amenities: ['Projector', 'Sound System'] },
-      ]
+  // Category mapping
+  const categoryMap = {
+    'study-rooms': 'library_room',
+    'labs': 'lab',
+    'equipment': 'equipment',
+    'meeting-rooms': 'seminar_hall',
+    'sports': 'sports_facility',
+    'auditoriums': 'auditorium',
+    'classrooms': 'classroom'
+  }
+
+  const categoryTitles = {
+    'study-rooms': { title: 'Study Rooms', icon: '📚' },
+    'labs': { title: 'Laboratory Facilities', icon: '🔬' },
+    'equipment': { title: 'Equipment', icon: '💻' },
+    'meeting-rooms': { title: 'Meeting Rooms', icon: '🏢' },
+    'sports': { title: 'Sports Facilities', icon: '⚽' },
+    'auditoriums': { title: 'Auditoriums', icon: '🎭' },
+    'classrooms': { title: 'Classrooms', icon: '📖' }
+  }
+
+  const currentCategory = categoryTitles[type] || categoryTitles['labs']
+
+  useEffect(() => {
+    fetchResources()
+  }, [type])
+
+  const fetchResources = async () => {
+    try {
+      setLoading(true)
+      const category = categoryMap[type]
+      const filters = category ? { category } : {}
+      
+      const response = await getAllResources(filters)
+      
+      if (response.success) {
+        setResources(response.resources || response.data || [])
+      } else {
+        toast.error('Failed to load resources')
+      }
+    } catch (error) {
+      console.error('Error fetching resources:', error)
+      toast.error('Error loading resources')
+    } finally {
+      setLoading(false)
     }
   }
 
-  const currentCategory = resourceData[type] || resourceData['study-rooms']
-  
-  const filteredResources = currentCategory.resources.filter(resource => {
+  const filteredResources = resources.filter(resource => {
     const matchesSearch = resource.name.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesCapacity = selectedCapacity === 'all' || 
       (selectedCapacity === 'small' && resource.capacity <= 10) ||
@@ -76,6 +67,17 @@ const ResourcesList = () => {
       (selectedCapacity === 'large' && resource.capacity > 30)
     return matchesSearch && matchesCapacity
   })
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="w-16 h-16 mx-auto mb-4 border-b-2 border-blue-600 rounded-full animate-spin"></div>
+          <p className="text-gray-600">Loading resources...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen py-12 bg-gradient-to-br from-blue-50 to-indigo-50">
@@ -127,7 +129,11 @@ const ResourcesList = () => {
         {/* Resources Grid */}
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {filteredResources.map((resource) => (
-            <ResourceCard key={resource.id} resource={resource} />
+            <ResourceCard 
+              key={resource._id} 
+              resource={resource}
+              onBook={() => navigate(`/resources/${resource._id}`)}
+            />
           ))}
         </div>
 
@@ -143,20 +149,20 @@ const ResourcesList = () => {
   )
 }
 
-const ResourceCard = ({ resource }) => {
+const ResourceCard = ({ resource, onBook }) => {
   return (
     <div className="overflow-hidden transition-all duration-300 transform bg-white border border-gray-100 shadow-lg rounded-2xl hover:shadow-2xl hover:-translate-y-2">
-      <div className={`h-2 ${resource.available ? 'bg-green-500' : 'bg-red-500'}`}></div>
+      <div className={`h-2 ${resource.isActive ? 'bg-green-500' : 'bg-red-500'}`}></div>
       
       <div className="p-6">
         <div className="flex items-start justify-between mb-4">
           <h3 className="text-xl font-bold text-gray-900">{resource.name}</h3>
           <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-            resource.available 
+            resource.isActive 
               ? 'bg-green-100 text-green-800' 
               : 'bg-red-100 text-red-800'
           }`}>
-            {resource.available ? 'Available' : 'Booked'}
+            {resource.isActive ? 'Available' : 'Unavailable'}
           </span>
         </div>
 
@@ -173,33 +179,48 @@ const ResourceCard = ({ resource }) => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
-            <span>{resource.floor || resource.location}</span>
+            <span>{resource.location}</span>
+          </div>
+
+          <div className="flex items-center text-gray-600">
+            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+            </svg>
+            <span className="text-sm">{resource.type}</span>
           </div>
         </div>
 
-        <div className="mb-4">
-          <p className="mb-2 text-sm font-semibold text-gray-700">Amenities:</p>
-          <div className="flex flex-wrap gap-2">
-            {resource.amenities.map((amenity, index) => (
-              <span 
-                key={index}
-                className="px-3 py-1 text-xs font-medium text-blue-700 rounded-lg bg-blue-50"
-              >
-                {amenity}
-              </span>
-            ))}
+        {resource.amenities && resource.amenities.length > 0 && (
+          <div className="mb-4">
+            <p className="mb-2 text-sm font-semibold text-gray-700">Amenities:</p>
+            <div className="flex flex-wrap gap-2">
+              {resource.amenities.slice(0, 3).map((amenity, index) => (
+                <span 
+                  key={index}
+                  className="px-3 py-1 text-xs font-medium text-blue-700 rounded-lg bg-blue-50"
+                >
+                  {amenity}
+                </span>
+              ))}
+              {resource.amenities.length > 3 && (
+                <span className="px-3 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-lg">
+                  +{resource.amenities.length - 3} more
+                </span>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         <button
-          disabled={!resource.available}
+          onClick={onBook}
+          disabled={!resource.isActive}
           className={`w-full py-3 rounded-lg font-semibold transition-all duration-200 ${
-            resource.available
+            resource.isActive
               ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 shadow-md hover:shadow-lg'
               : 'bg-gray-200 text-gray-500 cursor-not-allowed'
           }`}
         >
-          {resource.available ? 'Book Now' : 'Not Available'}
+          {resource.isActive ? 'View Details' : 'Not Available'}
         </button>
       </div>
     </div>
