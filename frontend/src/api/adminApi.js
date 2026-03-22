@@ -44,7 +44,7 @@ export const rejectBooking = async (bookingId, reason) => {
 
 export const markNoShow = async (bookingId) => {
   try {
-    const response = await api.patch(`/admin/bookings/${bookingId}/no-show`);
+    const response = await api.patch(`/admin/bookings/${bookingId}/mark-no-show`);
     return response.data;
   } catch (error) {
     return formatError(error, "Failed to mark booking as no-show");
@@ -92,7 +92,7 @@ export const unsuspendUser = async (userId) => {
 
 export const createResource = async (resourceData) => {
   try {
-    const response = await api.post("/admin/resources", resourceData);
+    const response = await api.post("/resources", resourceData);
     return response.data;
   } catch (error) {
     return formatError(error, "Failed to create resource");
@@ -101,7 +101,7 @@ export const createResource = async (resourceData) => {
 
 export const updateResource = async (resourceId, resourceData) => {
   try {
-    const response = await api.put(`/admin/resources/${resourceId}`, resourceData);
+    const response = await api.put(`/resources/${resourceId}`, resourceData);
     return response.data;
   } catch (error) {
     return formatError(error, "Failed to update resource");
@@ -110,7 +110,7 @@ export const updateResource = async (resourceId, resourceData) => {
 
 export const toggleResourceActive = async (resourceId) => {
   try {
-    const response = await api.patch(`/admin/resources/${resourceId}/toggle-active`);
+    const response = await api.patch(`/resources/${resourceId}/toggle`);
     return response.data;
   } catch (error) {
     return formatError(error, "Failed to toggle resource active status");

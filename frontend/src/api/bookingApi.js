@@ -29,10 +29,19 @@ export const getMyBookings = async () => {
 
 export const getBookingHistory = async () => {
   try {
-    const response = await api.get("/bookings/history");
+    const response = await api.get("/bookings/my/history");
     return response.data;
   } catch (error) {
     return formatError(error, "Failed to fetch booking history");
+  }
+};
+
+export const getBookingById = async (bookingId) => {
+  try {
+    const response = await api.get(`/bookings/${bookingId}`);
+    return response.data;
+  } catch (error) {
+    return formatError(error, "Failed to fetch booking");
   }
 };
 

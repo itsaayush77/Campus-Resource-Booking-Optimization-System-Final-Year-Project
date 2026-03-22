@@ -2,10 +2,35 @@ import api from "./api";
 
 const formatError = (error, fallbackMessage) => {
   console.error(error);
+  if (!error?.response) {
+    const isNetwork =
+      error?.code === "ERR_NETWORK" ||
+      error?.message === "Network Error";
+    return {
+      success: false,
+      message: isNetwork
+        ? "Cannot reach the API. Run the backend on port 5000 (cd backend && npm run dev) with MongoDB up. If it still fails, set VITE_API_URL in frontend/.env to your API base URL."
+        : fallbackMessage,
+      data: null,
+    };
+  }
+
+  const status = error.response.status;
+  const raw = error.response.data;
+  let message =
+    typeof raw === "object" && raw !== null && raw.message
+      ? raw.message
+      : null;
+
+  if (!message && (status === 502 || status === 503 || status === 504)) {
+    message =
+      "API proxy/gateway error — the dev server could not reach the backend. Use http://127.0.0.1:5000 for the API, confirm PORT in backend/.env, and restart both servers.";
+  }
+
   return {
     success: false,
-    message: error?.response?.data?.message || fallbackMessage,
-    data: error?.response?.data?.data || null,
+    message: message || fallbackMessage,
+    data: typeof raw === "object" && raw !== null ? raw.data ?? null : null,
   };
 };
 

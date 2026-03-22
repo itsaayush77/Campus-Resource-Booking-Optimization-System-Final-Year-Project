@@ -1,7 +1,16 @@
 import axios from "axios";
 
+// Dev: use IPv4 loopback — on Windows, "localhost" often hits ::1 while Express listens on IPv4,
+// which causes Axios "Network Error" or Vite proxy 502 + useless HTML bodies.
+// Override with VITE_API_URL if your API runs elsewhere.
+const baseURL =
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.DEV
+    ? "http://127.0.0.1:5000/api"
+    : "/api");
+
 const api = axios.create({
-  baseURL: "http://localhost:5000/api",
+  baseURL,
   headers: {
     "Content-Type": "application/json",
   },

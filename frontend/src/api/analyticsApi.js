@@ -9,15 +9,17 @@ const formatError = (error, fallbackMessage) => {
   };
 };
 
-export const getAnalyticsSummary = async (fromDate, toDate) => {
+export const getAnalyticsSummary = async (from, to) => {
   try {
     const params = new URLSearchParams();
 
-    if (fromDate) params.append("fromDate", fromDate);
-    if (toDate) params.append("toDate", toDate);
+    if (from) params.append("from", from);
+    if (to) params.append("to", to);
 
     const query = params.toString();
-    const url = query ? `/analytics/summary?${query}` : "/analytics/summary";
+    const url = query
+      ? `/admin/analytics/summary?${query}`
+      : "/admin/analytics/summary";
     const response = await api.get(url);
 
     return response.data;
