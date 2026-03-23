@@ -57,10 +57,28 @@ exports.register = async (req, res) => {
     });
   } catch (error) {
     console.error('Registration error:', error);
+
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email already registered'
+      });
+    }
+
+    if (error.name === 'ValidationError') {
+      const msg = Object.values(error.errors)
+        .map((e) => e.message)
+        .join(', ');
+      return res.status(400).json({
+        success: false,
+        message: msg || 'Invalid registration data'
+      });
+    }
+
     res.status(500).json({
       success: false,
       message: 'Registration failed',
-      error: error.message
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };

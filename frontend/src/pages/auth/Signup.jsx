@@ -39,8 +39,12 @@ const Signup = () => {
     setLoading(true);
 
     try {
-      const { confirmPassword, ...registerData } = formData;
-      
+      const registerData = Object.fromEntries(
+        Object.entries(formData).filter(
+          ([key, value]) => key !== 'confirmPassword' && value !== ''
+        )
+      );
+
       const data = await registerApi(registerData);
 
       if (data.success) {

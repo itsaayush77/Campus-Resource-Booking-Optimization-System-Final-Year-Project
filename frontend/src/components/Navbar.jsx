@@ -57,12 +57,13 @@ const Navbar = () => {
   }
 
   const resourceTypes = [
-    { name: 'Study Rooms', icon: '📚', path: '/resources?type=study_room' },
-    { name: 'Labs', icon: '🔬', path: '/resources?type=lab' },
-    { name: 'Equipment', icon: '💻', path: '/resources?type=equipment' },
-    { name: 'Meeting Rooms', icon: '🏢', path: '/resources?type=meeting_room' },
-    { name: 'Sports Facilities', icon: '⚽', path: '/resources?type=sports_facility' },
-    { name: 'Auditoriums', icon: '🎭', path: '/resources?type=auditorium' }
+    { name: 'Classrooms', icon: '📚', path: '/resources?category=classroom' },
+    { name: 'Labs', icon: '🔬', path: '/resources?category=lab' },
+    { name: 'Seminar halls', icon: '🏛️', path: '/resources?category=seminar_hall' },
+    { name: 'Equipment', icon: '💻', path: '/resources?category=equipment' },
+    { name: 'Sports facilities', icon: '⚽', path: '/resources?category=sports_facility' },
+    { name: 'Auditoriums', icon: '🎭', path: '/resources?category=auditorium' },
+    { name: 'Library rooms', icon: '📖', path: '/resources?category=library_room' },
   ]
 
   return (

@@ -22,6 +22,7 @@ import Unauthorized from "./user/Unauthorized";
 
 // Pages - Resources
 import BrowseResources from "./pages/resources/BrowseResources";
+import ResourceDetails from "./pages/resources/ResourceDetails";
 import ResourcesList from "./pages/resources/ResourcesList";
 import BookingForm from "./pages/resources/BookingForm";
 import BookingStatus from "./pages/resources/BookingStatus";
@@ -80,7 +81,15 @@ function App() {
             path="/resources/:id"
             element={
               <ProtectedRoute>
-                <BrowseResources />
+                <ResourceDetails />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/book/:resourceId"
+            element={
+              <ProtectedRoute>
+                <BookingForm />
               </ProtectedRoute>
             }
           />

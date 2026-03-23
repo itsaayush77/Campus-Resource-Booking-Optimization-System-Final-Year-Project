@@ -9,11 +9,21 @@ dotenv.config();
 
 const app = express();
 
-// Middleware
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-  credentials: true
-}));
+// Middleware — development allows any origin so localhost vs 127.0.0.1 vs LAN IP all work with credentials
+const corsOptions = {
+  credentials: true,
+  origin(origin, callback) {
+    if (process.env.NODE_ENV === 'production') {
+      const allowed = process.env.FRONTEND_URL;
+      if (!origin || origin === allowed) {
+        return callback(null, true);
+      }
+      return callback(new Error('Not allowed by CORS'));
+    }
+    return callback(null, true);
+  },
+};
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

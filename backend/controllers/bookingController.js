@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const mongoose = require('mongoose');
+const QRCode = require('qrcode');
 const Booking = require('../models/Bookings');
 const Resource = require('../models/Resource');
 const { createNotification } = require('../services/notificationService');
@@ -193,6 +194,54 @@ exports.getMyBookingHistory = async (req, res) => {
   }
 };
 
+// @desc    Get a single booking by ID
+// @route   GET /api/bookings/:id
+// @access  Private
+exports.getBookingById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid booking ID'
+      });
+    }
+
+    const booking = await Booking.findById(id)
+      .populate('resourceId', 'name location capacity type category description amenities availability isActive')
+      .populate('userId', 'name email role department');
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: 'Booking not found'
+      });
+    }
+
+    const isAdmin = req.user.role === 'admin';
+    const isOwner = booking.userId?._id?.toString() === req.user._id.toString();
+
+    if (!isAdmin && !isOwner) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not allowed to view this booking'
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      booking
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch booking',
+      error: error.message
+    });
+  }
+};
+
 // @desc    Cancel booking
 // @route   PATCH /api/bookings/:id/cancel
 // @access  Private
@@ -346,6 +395,17 @@ exports.approveBooking = async (req, res) => {
     booking.approvedAt = new Date();
     booking.rejectionReason = null;
     booking.qrCode = `BK-${booking._id.toString()}-${crypto.randomBytes(12).toString('hex')}`;
+
+    try {
+      booking.qrCodeImage = await QRCode.toDataURL(booking.qrCode, {
+        margin: 1,
+        width: 280
+      });
+    } catch (qrError) {
+      console.error('Failed to generate QR image:', qrError.message);
+      booking.qrCodeImage = null;
+    }
+
     await booking.save();
 
     try {
