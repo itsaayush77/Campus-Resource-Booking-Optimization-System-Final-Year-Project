@@ -82,7 +82,7 @@ const Navbar = () => {
 
   return (
     <nav className="sticky top-0 z-50 bg-white border-b-2 border-blue-100 shadow-lg">
-      <div className="px-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
+      <div className="px-3 mx-auto max-w-[1600px] sm:px-5 lg:px-6">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <button
@@ -99,8 +99,8 @@ const Navbar = () => {
 
           {/* Desktop Navigation */}
           <div className="items-center hidden space-x-1 md:flex">
-            {/* Show Home & How It Works only for non-admin users */}
-            {(!user || !isAdmin) && (
+            {/* Show landing-page navigation only before login */}
+            {!user && (
               <>
                 <button
                   onClick={scrollToTop}
@@ -182,8 +182,8 @@ const Navbar = () => {
               )}
             </div>
 
-            {/* Show How It Works only for non-admin users */}
-            {(!user || !isAdmin) && (
+            {/* Show How It Works only before login */}
+            {!user && (
               <button
                 onClick={scrollToHowItWorks}
                 className="px-4 py-2 font-medium text-gray-700 transition duration-200 rounded-lg hover:text-blue-600 hover:bg-blue-50"
@@ -318,8 +318,8 @@ const Navbar = () => {
         {/* Mobile Menu */}
 {isMobileMenuOpen && (
   <div className="py-4 border-t border-gray-100 md:hidden">
-    {/* Show Home & How It Works only for non-admin users */}
-    {(!user || !isAdmin) && (
+    {/* Show landing-page navigation only before login */}
+    {!user && (
       <button
         onClick={scrollToTop}
         className="block w-full px-4 py-2 text-left text-gray-700 rounded-lg hover:bg-blue-50"
@@ -369,8 +369,8 @@ const Navbar = () => {
       )}
     </div>
 
-    {/* Show How It Works only for non-admin users */}
-    {(!user || !isAdmin) && (
+    {/* Show How It Works only before login */}
+    {!user && (
       <button
         onClick={scrollToHowItWorks}
         className="block w-full px-4 py-2 text-left text-gray-700 rounded-lg hover:bg-blue-50"
