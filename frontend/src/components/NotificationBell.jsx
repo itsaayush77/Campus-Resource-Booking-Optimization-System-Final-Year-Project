@@ -1,77 +1,124 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { LuBell, LuBellRing, LuCircleAlert, LuCircleCheckBig, LuCircleX, LuTriangleAlert } from 'react-icons/lu';
 import { getAllNotifications, markAsRead } from '../api/notificationApi';
+import { subscribeToAppDataChanges } from '../utils/dataSync';
+import { getNotificationTarget } from '../utils/notificationRouting';
 
 const NotificationBell = () => {
   const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [showDropdown, setShowDropdown] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
-  useEffect(() => {
-    fetchNotifications();
-    
-    // Auto-refresh every 60 seconds
-    const interval = setInterval(fetchNotifications, 60000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     try {
       setLoading(true);
       const response = await getAllNotifications();
-      
+
       if (response.success) {
-        const notifs = response.data || [];
-        setNotifications(notifs);
-        setUnreadCount(notifs.filter(n => !n.isRead).length);
+        setNotifications(Array.isArray(response.notifications) ? response.notifications : []);
       }
     } catch (error) {
       console.error('Error fetching notifications:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchNotifications();
+
+    const interval = setInterval(fetchNotifications, 60000);
+    return () => clearInterval(interval);
+  }, [fetchNotifications, location.pathname]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchNotifications();
+      }
+    };
+
+    const unsubscribe = subscribeToAppDataChanges(fetchNotifications);
+
+    window.addEventListener('focus', fetchNotifications);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      unsubscribe();
+      window.removeEventListener('focus', fetchNotifications);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [fetchNotifications]);
+
+  const unreadCount = useMemo(
+    () => notifications.filter((notification) => !notification.isRead).length,
+    [notifications]
+  );
 
   const handleNotificationClick = async (notification) => {
-    // Mark as read if unread
     if (!notification.isRead) {
       try {
         await markAsRead(notification._id);
-        await fetchNotifications(); // Refresh to update count
+        setNotifications((current) =>
+          current.map((item) =>
+            item._id === notification._id
+              ? { ...item, isRead: true, readAt: new Date().toISOString() }
+              : item
+          )
+        );
       } catch (error) {
         console.error('Error marking notification as read:', error);
       }
     }
 
-    // Close dropdown
     setShowDropdown(false);
-
-    // Navigate to notifications page
-    navigate('/notifications');
+    navigate(getNotificationTarget(notification));
   };
 
   const getNotificationIcon = (type) => {
     switch (type) {
       case 'booking_approved':
-        return '✓';
+        return LuCircleCheckBig;
+      case 'booking_completed':
+        return LuCircleCheckBig;
       case 'booking_rejected':
-        return '✗';
+        return LuCircleX;
       case 'booking_cancelled':
-        return '⊗';
+        return LuCircleAlert;
       case 'no_show_warning':
-        return '⚠';
+        return LuTriangleAlert;
       case 'account_suspended':
-        return '🚫';
+        return LuCircleAlert;
       default:
-        return 'ℹ';
+        return LuBellRing;
+    }
+  };
+
+  const getNotificationColor = (type) => {
+    switch (type) {
+      case 'booking_approved':
+        return 'text-green-600';
+      case 'booking_completed':
+        return 'text-emerald-600';
+      case 'booking_rejected':
+        return 'text-red-600';
+      case 'booking_cancelled':
+        return 'text-yellow-600';
+      case 'no_show_warning':
+        return 'text-orange-600';
+      case 'account_suspended':
+        return 'text-red-700';
+      default:
+        return 'text-blue-600';
     }
   };
 
   const formatTimeAgo = (date) => {
     const seconds = Math.floor((new Date() - new Date(date)) / 1000);
-    
+
     if (seconds < 60) return 'Just now';
     if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
     if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
@@ -79,34 +126,22 @@ const NotificationBell = () => {
     return new Date(date).toLocaleDateString();
   };
 
-  // Get last 3 unread or recent notifications for dropdown
-  const recentNotifications = notifications
-    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-    .slice(0, 3);
+  const recentNotifications = useMemo(
+    () =>
+      [...notifications]
+        .sort((left, right) => new Date(right.createdAt) - new Date(left.createdAt))
+        .slice(0, 3),
+    [notifications]
+  );
 
   return (
     <div className="relative">
-      {/* Bell Button */}
       <button
         onClick={() => setShowDropdown(!showDropdown)}
         className="relative p-2 text-gray-600 hover:text-gray-900 focus:outline-none"
       >
-        {/* Bell Icon (SVG) */}
-        <svg 
-          className="w-6 h-6" 
-          fill="none" 
-          stroke="currentColor" 
-          viewBox="0 0 24 24"
-        >
-          <path 
-            strokeLinecap="round" 
-            strokeLinejoin="round" 
-            strokeWidth={2} 
-            d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" 
-          />
-        </svg>
+        <LuBell className="w-6 h-6" />
 
-        {/* Unread Badge */}
         {unreadCount > 0 && (
           <span className="absolute top-0 right-0 flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-red-500 rounded-full">
             {unreadCount > 9 ? '9+' : unreadCount}
@@ -114,18 +149,11 @@ const NotificationBell = () => {
         )}
       </button>
 
-      {/* Dropdown */}
       {showDropdown && (
         <>
-          {/* Backdrop */}
-          <div 
-            className="fixed inset-0 z-10" 
-            onClick={() => setShowDropdown(false)}
-          />
+          <div className="fixed inset-0 z-10" onClick={() => setShowDropdown(false)} />
 
-          {/* Dropdown Menu */}
-          <div className="absolute right-0 z-20 mt-2 bg-white border border-gray-200 rounded-lg shadow-xl w-80">
-            {/* Header */}
+          <div className="absolute right-0 z-20 w-80 mt-2 bg-white border border-gray-200 rounded-lg shadow-xl">
             <div className="flex items-center justify-between p-4 border-b">
               <h3 className="font-semibold text-gray-900">Notifications</h3>
               {unreadCount > 0 && (
@@ -133,56 +161,51 @@ const NotificationBell = () => {
               )}
             </div>
 
-            {/* Notifications List */}
             <div className="overflow-y-auto max-h-96">
               {loading ? (
                 <div className="p-4 text-center text-gray-500">Loading...</div>
               ) : recentNotifications.length > 0 ? (
-                recentNotifications.map((notification) => (
-                  <button
-                    key={notification._id}
-                    onClick={() => handleNotificationClick(notification)}
-                    className={`w-full p-4 text-left border-b hover:bg-gray-50 transition ${
-                      !notification.isRead ? 'bg-blue-50' : ''
-                    }`}
-                  >
-                    <div className="flex items-start gap-3">
-                      {/* Icon */}
-                      <span className="flex-shrink-0 text-xl">
-                        {getNotificationIcon(notification.type)}
-                      </span>
+                recentNotifications.map((notification) => {
+                  const Icon = getNotificationIcon(notification.type);
 
-                      {/* Content */}
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-sm ${!notification.isRead ? 'font-semibold' : 'font-medium'} text-gray-900`}>
-                          {notification.title}
-                        </p>
-                        <p className="mt-1 text-xs text-gray-600 line-clamp-2">
-                          {notification.message}
-                        </p>
-                        <p className="mt-1 text-xs text-gray-400">
-                          {formatTimeAgo(notification.createdAt)}
-                        </p>
+                  return (
+                    <button
+                      key={notification._id}
+                      onClick={() => handleNotificationClick(notification)}
+                      className={`w-full p-4 text-left border-b hover:bg-gray-50 transition ${
+                        !notification.isRead ? 'bg-blue-50' : ''
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <Icon className={`flex-shrink-0 w-5 h-5 mt-0.5 ${getNotificationColor(notification.type)}`} />
+
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm ${!notification.isRead ? 'font-semibold' : 'font-medium'} text-gray-900`}>
+                            {notification.title}
+                          </p>
+                          <p className="mt-1 text-xs text-gray-600 line-clamp-2">
+                            {notification.message}
+                          </p>
+                          <p className="mt-1 text-xs text-gray-400">
+                            {formatTimeAgo(notification.createdAt)}
+                          </p>
+                        </div>
+
+                        {!notification.isRead && (
+                          <span className="flex-shrink-0 w-2 h-2 mt-1 bg-blue-500 rounded-full" />
+                        )}
                       </div>
-
-                      {/* Unread Dot */}
-                      {!notification.isRead && (
-                        <span className="flex-shrink-0 w-2 h-2 mt-1 bg-blue-500 rounded-full" />
-                      )}
-                    </div>
-                  </button>
-                ))
+                    </button>
+                  );
+                })
               ) : (
                 <div className="p-8 text-center text-gray-500">
-                  <svg className="w-12 h-12 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                  </svg>
+                  <LuBell className="w-12 h-12 mx-auto mb-2 text-gray-300" />
                   <p className="text-sm">No notifications yet</p>
                 </div>
               )}
             </div>
 
-            {/* Footer - View All */}
             {notifications.length > 0 && (
               <button
                 onClick={() => {
