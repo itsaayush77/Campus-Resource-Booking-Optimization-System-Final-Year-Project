@@ -1,4 +1,5 @@
 import axios from "axios";
+import { clearStoredAuth, getStoredToken } from "../utils/authStorage";
 
 // Dev: use IPv4 loopback — on Windows, "localhost" often hits ::1 while Express listens on IPv4,
 // which causes Axios "Network Error" or Vite proxy 502 + useless HTML bodies.
@@ -18,7 +19,17 @@ const api = axios.create({
 
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("token");
+    const token = getStoredToken();
+
+    if (String(config.method || "").toLowerCase() === "get") {
+      config.headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
+      config.headers.Pragma = "no-cache";
+      config.headers.Expires = "0";
+      config.params = {
+        ...(config.params || {}),
+        _ts: Date.now(),
+      };
+    }
 
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -33,8 +44,7 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error?.response?.status === 401) {
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
+      clearStoredAuth();
 
       if (window.location.pathname !== "/login") {
         window.location.href = "/login";
