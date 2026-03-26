@@ -31,6 +31,9 @@ const mergeBookings = (...groups) => {
   return [...byId.values()];
 };
 
+const isOverduePendingBooking = (booking) =>
+  booking?.status === 'pending' && new Date(booking.endTime).getTime() < Date.now();
+
 const Dashboard = () => {
   const [bookings, setBookings] = useState([]);
   const [notifications, setNotifications] = useState([]);
@@ -144,6 +147,10 @@ const Dashboard = () => {
   const unreadNotifications = useMemo(
     () => notifications.filter((notification) => !notification.isRead),
     [notifications]
+  );
+  const overduePendingBookings = useMemo(
+    () => bookings.filter(isOverduePendingBooking),
+    [bookings]
   );
 
   const stats = [
@@ -280,6 +287,24 @@ const Dashboard = () => {
             );
           })}
         </div>
+
+        {overduePendingBookings.length > 0 && (
+          <div className="p-5 mb-8 border shadow-sm bg-amber-50 border-amber-200 rounded-2xl">
+            <p className="text-lg font-bold text-amber-900">Pending request missed its booking window</p>
+            <p className="mt-2 text-sm leading-6 text-amber-800">
+              You have {overduePendingBookings.length} booking
+              {overduePendingBookings.length > 1 ? 's' : ''} whose scheduled time passed while still pending.
+              No-show applies only to approved bookings, so these remain pending until an admin reviews them.
+            </p>
+            <Link
+              to="/my-bookings"
+              className="inline-flex items-center gap-2 mt-4 font-semibold text-amber-900 hover:text-amber-950"
+            >
+              Review in My Bookings
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
           <div className="space-y-8 lg:col-span-2">
