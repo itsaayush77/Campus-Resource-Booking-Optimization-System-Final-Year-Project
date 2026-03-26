@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { checkInBooking, getBookingById } from '../api/bookingApi';
+import BackButton from '../components/BackButton';
+import { signalAppDataChanged } from '../utils/dataSync';
 
 const QRCheckIn = () => {
   const { bookingId } = useParams();
@@ -12,18 +14,23 @@ const QRCheckIn = () => {
 
   useEffect(() => {
     if (!bookingId) return undefined;
+
     let cancelled = false;
+
     (async () => {
       const data = await getBookingById(bookingId);
       if (cancelled) return;
+
       if (data.success && data.booking) {
         setBooking(data.booking);
       } else {
         toast.error(data.message || 'Booking not found');
         setBooking(null);
       }
+
       setLoading(false);
     })();
+
     return () => {
       cancelled = true;
     };
@@ -39,13 +46,16 @@ const QRCheckIn = () => {
       toast.error('No QR token on this booking. It may not be approved yet.');
       return;
     }
+
     setCheckingIn(true);
     const data = await checkInBooking(booking._id, booking.qrCode);
     setCheckingIn(false);
+
     if (data.success) {
       toast.success(data.message || 'Checked in!');
       setDone(true);
       setBooking(data.booking || booking);
+      signalAppDataChanged('bookings');
     } else {
       toast.error(data.message || 'Check-in failed');
     }
@@ -63,9 +73,9 @@ const QRCheckIn = () => {
     return (
       <div className="px-4 py-16 mx-auto max-w-lg text-center">
         <p className="text-gray-600">Booking not found.</p>
-        <Link to="/my-bookings" className="inline-block mt-4 font-medium text-blue-600">
-          ← My bookings
-        </Link>
+        <div className="flex justify-center mt-4">
+          <BackButton label="My bookings" to="/my-bookings" className="mb-0" />
+        </div>
       </div>
     );
   }
@@ -95,16 +105,13 @@ const QRCheckIn = () => {
   return (
     <div className="min-h-screen py-8 bg-gray-50">
       <div className="px-4 mx-auto max-w-lg">
-        <Link to="/my-bookings" className="text-sm font-medium text-blue-600 hover:text-blue-800">
-          ← My bookings
-        </Link>
+        <BackButton label="My bookings" to="/my-bookings" />
 
         <div className="p-6 mt-4 bg-white shadow-lg rounded-2xl">
           <h1 className="text-2xl font-bold text-gray-900">Check in</h1>
           <p className="mt-1 text-gray-600">{resourceName}</p>
           <p className="mt-2 text-sm text-gray-500">
-            {new Date(booking.startTime).toLocaleString()} —{' '}
-            {new Date(booking.endTime).toLocaleString()}
+            {new Date(booking.startTime).toLocaleString()} - {new Date(booking.endTime).toLocaleString()}
           </p>
 
           {booking.qrCodeImage ? (
@@ -114,22 +121,18 @@ const QRCheckIn = () => {
               className="w-full max-w-[280px] mx-auto mt-6 border border-gray-200 rounded-lg"
             />
           ) : (
-            <p className="mt-6 text-sm text-amber-700 bg-amber-50 rounded-lg p-4">
+            <p className="p-4 mt-6 text-sm rounded-lg text-amber-700 bg-amber-50">
               QR code is not available yet. Your booking must be approved by an admin first.
             </p>
           )}
 
           <button
             type="button"
-            disabled={
-              checkingIn ||
-              booking.status !== 'approved' ||
-              !booking.qrCode
-            }
+            disabled={checkingIn || booking.status !== 'approved' || !booking.qrCode}
             onClick={handleCheckIn}
             className="w-full py-3 mt-6 font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
-            {checkingIn ? 'Checking in…' : 'Check in now'}
+            {checkingIn ? 'Checking in...' : 'Check in now'}
           </button>
           <p className="mt-3 text-xs text-center text-gray-500">
             Check-in opens 15 minutes before the start time and closes at the end time.
