@@ -9,6 +9,7 @@ const Navbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { user, logout } = useAuth();
   const isAdmin = String(user?.role || "").toLowerCase() === "admin";
+  const dashboardPath = isAdmin ? "/admin/dashboard" : "/dashboard";
   const navigate = useNavigate();
   const location = useLocation();
   const dropdownRef = useRef(null);
@@ -22,7 +23,9 @@ const Navbar = () => {
   };
 
   const scrollToTop = () => {
-    if (location.pathname !== "/") {
+    if (user) {
+      navigate(dashboardPath);
+    } else if (location.pathname !== "/") {
       navigate("/");
     } else {
       window.scrollTo({ top: 0, behavior: "smooth" });

@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const Resource = require('../models/Resource');
+const Booking = require('../models/Bookings');
 
 const parseBoolean = (value) => {
   if (typeof value === 'boolean') return value;
@@ -7,6 +8,28 @@ const parseBoolean = (value) => {
   if (value.toLowerCase() === 'true') return true;
   if (value.toLowerCase() === 'false') return false;
   return undefined;
+};
+
+const parseDateParam = (value, fallbackDate) => {
+  if (!value) return fallbackDate;
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return date;
+};
+
+const getDefaultAvailabilityRange = () => {
+  const startDate = new Date();
+  startDate.setHours(0, 0, 0, 0);
+
+  const endDate = new Date(startDate);
+  endDate.setDate(endDate.getDate() + 6);
+  endDate.setHours(23, 59, 59, 999);
+
+  return { startDate, endDate };
 };
 
 // @desc    Get all resources
@@ -94,6 +117,80 @@ exports.getResourceById = async (req, res) => {
   }
 };
 
+// @desc    Get resource booking availability for calendar view
+// @route   GET /api/resources/:id/bookings?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
+// @access  Private
+exports.getResourceBookings = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const defaults = getDefaultAvailabilityRange();
+    const startDate = parseDateParam(req.query.startDate, defaults.startDate);
+    const endDate = parseDateParam(req.query.endDate, defaults.endDate);
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid resource ID'
+      });
+    }
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid date format. Use YYYY-MM-DD'
+      });
+    }
+
+    startDate.setHours(0, 0, 0, 0);
+    endDate.setHours(23, 59, 59, 999);
+
+    if (startDate > endDate) {
+      return res.status(400).json({
+        success: false,
+        message: 'startDate must be before endDate'
+      });
+    }
+
+    const resource = await Resource.findById(id).select('name availability isActive');
+
+    if (!resource) {
+      return res.status(404).json({
+        success: false,
+        message: 'Resource not found'
+      });
+    }
+
+    if (!resource.isActive && req.user?.role !== 'admin') {
+      return res.status(404).json({
+        success: false,
+        message: 'Resource not found'
+      });
+    }
+
+    const bookings = await Booking.find({
+      resourceId: id,
+      status: { $in: ['pending', 'approved', 'completed', 'no_show'] },
+      startTime: { $lt: endDate },
+      endTime: { $gt: startDate }
+    })
+      .populate('userId', 'name')
+      .select('startTime endTime status purpose userId')
+      .sort({ startTime: 1 });
+
+    return res.status(200).json({
+      success: true,
+      resource,
+      bookings
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch resource availability',
+      error: error.message
+    });
+  }
+};
+
 // @desc    Create resource
 // @route   POST /api/resources
 // @access  Private/Admin
@@ -152,6 +249,43 @@ exports.updateResource = async (req, res) => {
     return res.status(400).json({
       success: false,
       message: 'Failed to update resource',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Delete resource
+// @route   DELETE /api/resources/:id
+// @access  Private/Admin
+exports.deleteResource = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid resource ID'
+      });
+    }
+
+    const resource = await Resource.findByIdAndDelete(id);
+
+    if (!resource) {
+      return res.status(404).json({
+        success: false,
+        message: 'Resource not found'
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Resource deleted successfully',
+      resource
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to delete resource',
       error: error.message
     });
   }

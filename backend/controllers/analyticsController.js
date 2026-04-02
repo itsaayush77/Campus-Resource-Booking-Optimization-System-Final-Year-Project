@@ -76,6 +76,7 @@ exports.getAnalyticsSummary = async (req, res) => {
             _id: 0,
             resourceId: '$_id',
             resourceName: '$resource.name',
+            resourceCategory: '$resource.category',
             count: 1
           }
         }

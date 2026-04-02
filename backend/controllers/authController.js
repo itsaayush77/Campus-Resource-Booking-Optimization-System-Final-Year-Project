@@ -2,6 +2,21 @@ const User = require('../models/User');
 const { generateToken } = require('../utils/helpers');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
+
+const serializeUser = (user) => ({
+  id: user._id,
+  name: user.name,
+  email: user.email,
+  role: user.role,
+  phoneNumber: user.phoneNumber,
+  department: user.department,
+  profilePicture: user.profilePicture,
+  noShowCount: user.noShowCount,
+  isSuspended: user.isSuspended,
+  suspendedUntil: user.suspendedUntil,
+  isActive: user.isActive,
+  createdAt: user.createdAt
+});
 // @desc    Register new user
 // @route   POST /api/auth/register
 // @access  Public
@@ -46,14 +61,7 @@ exports.register = async (req, res) => {
       success: true,
       message: 'Registration successful',
       token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        phoneNumber: user.phoneNumber,
-        department: user.department
-      }
+      user: serializeUser(user)
     });
   } catch (error) {
     console.error('Registration error:', error);
@@ -148,15 +156,7 @@ exports.login = async (req, res) => {
       success: true,
       message: 'Login successful',
       token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        phoneNumber: user.phoneNumber,
-        department: user.department,
-        profilePicture: user.profilePicture
-      }
+      user: serializeUser(user)
     });
   } catch (error) {
     console.error('Login error:', error);
@@ -177,18 +177,7 @@ exports.getMe = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        phoneNumber: user.phoneNumber,
-        department: user.department,
-        profilePicture: user.profilePicture,
-        noShowCount: user.noShowCount,
-        isSuspended: user.isSuspended,
-        createdAt: user.createdAt
-      }
+      user: serializeUser(user)
     });
   } catch (error) {
     console.error('Get profile error:', error);
@@ -226,14 +215,7 @@ exports.updateProfile = async (req, res) => {
     res.status(200).json({
       success: true,
       message: 'Profile updated successfully',
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        phoneNumber: user.phoneNumber,
-        department: user.department
-      }
+      user: serializeUser(user)
     });
   } catch (error) {
     console.error('Update profile error:', error);

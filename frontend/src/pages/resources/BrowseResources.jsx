@@ -365,7 +365,7 @@ const ResourceCard = ({ resource }) => {
 
         <div className="flex gap-2">
           <Link
-            to={`/resources/${resource._id}`}
+            to={`/resource/${resource._id}`}
             className="flex flex-1 items-center justify-center py-2.5 text-sm font-semibold text-blue-600 rounded-lg bg-blue-50 hover:bg-blue-100"
           >
             Details

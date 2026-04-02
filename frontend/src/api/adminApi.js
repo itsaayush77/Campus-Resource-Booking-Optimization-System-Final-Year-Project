@@ -116,3 +116,12 @@ export const toggleResourceActive = async (resourceId) => {
     return formatError(error, "Failed to toggle resource active status");
   }
 };
+
+export const deleteResource = async (resourceId) => {
+  try {
+    const response = await api.delete(`/resources/${resourceId}`);
+    return response.data;
+  } catch (error) {
+    return formatError(error, "Failed to delete resource");
+  }
+};

@@ -1,15 +1,22 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { getCurrentUser, logout as apiLogout } from '../api/authApi';
+import {
+  clearStoredAuth,
+  getStoredToken,
+  getStoredUser,
+  setStoredAuth,
+  setStoredUser,
+} from '../utils/authStorage';
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(getStoredUser());
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const initAuth = async () => {
-      const token = localStorage.getItem('token');
+      const token = getStoredToken();
       if (!token) {
         setLoading(false);
         return;
@@ -17,18 +24,22 @@ export const AuthProvider = ({ children }) => {
 
       try {
         const data = await getCurrentUser();
+        const isApiUnreachable =
+          typeof data?.message === 'string' &&
+          (data.message.includes('Cannot reach the API') ||
+            data.message.includes('API proxy/gateway error'));
 
         if (data.success && data.user) {
           setUser(data.user);
-          localStorage.setItem('user', JSON.stringify(data.user));
+          setStoredUser(data.user);
+        } else if (isApiUnreachable && getStoredUser()) {
+          setUser(getStoredUser());
         } else {
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
+          clearStoredAuth();
           setUser(null);
         }
       } catch {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+        clearStoredAuth();
         setUser(null);
       } finally {
         setLoading(false);
@@ -39,9 +50,20 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = (userData, token) => {
-    localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify(userData));
+    setStoredAuth(userData, token);
     setUser(userData);
+  };
+
+  const updateUser = (nextUser) => {
+    setUser((current) => {
+      const mergedUser = {
+        ...(current || {}),
+        ...(nextUser || {}),
+      };
+
+      setStoredUser(mergedUser);
+      return mergedUser;
+    });
   };
 
   const logout = async () => {
@@ -51,8 +73,7 @@ export const AuthProvider = ({ children }) => {
       // ignore logout errors
     }
 
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    clearStoredAuth();
     setUser(null);
   };
 
@@ -60,6 +81,7 @@ export const AuthProvider = ({ children }) => {
     user,
     loading,
     login,
+    updateUser,
     logout,
     isAuthenticated: !!user
   };

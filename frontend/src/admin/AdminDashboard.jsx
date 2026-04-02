@@ -6,7 +6,6 @@ import toast from 'react-hot-toast';
 import {
   LuActivity as Activity,
   LuArrowRight as ArrowRight,
-  LuBan as Ban,
   LuBadgeAlert as AlertOctagon,
   LuBuilding2 as Building2,
   LuChartColumn as BarChart3,
@@ -20,6 +19,59 @@ import {
   LuTrendingUp as TrendingUp,
 } from 'react-icons/lu';
 import { subscribeToAppDataChanges } from '../utils/dataSync';
+
+const formatCompactNumber = (value) =>
+  Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(value || 0);
+
+const RESOURCE_CATEGORY_ICONS = {
+  classroom: '📚',
+  lab: '🔬',
+  seminar_hall: '🏛️',
+  sports_facility: '⚽',
+  equipment: '💻',
+  auditorium: '🎭',
+  library_room: '📖',
+};
+
+const getResourceDisplayName = (resource) => {
+  const directName = resource?.resourceName || resource?.name;
+  if (directName && String(directName).trim()) {
+    return String(directName).trim();
+  }
+
+  const idValue = resource?.resourceId;
+  const normalizedId =
+    typeof idValue === 'string'
+      ? idValue
+      : idValue && typeof idValue === 'object' && '_id' in idValue
+        ? String(idValue._id)
+        : null;
+
+  if (normalizedId) {
+    return `Archived Resource (${normalizedId.slice(-6)})`;
+  }
+
+  return 'Archived Resource';
+};
+
+const getResourceCategoryIcon = (resource) => {
+  const category = resource?.resourceCategory;
+  if (category && RESOURCE_CATEGORY_ICONS[category]) {
+    return RESOURCE_CATEGORY_ICONS[category];
+  }
+
+  const name = getResourceDisplayName(resource).toLowerCase();
+
+  if (name.includes('lab')) return '🔬';
+  if (name.includes('auditorium') || name.includes('stage')) return '🎭';
+  if (name.includes('seminar') || name.includes('hall')) return '🏛️';
+  if (name.includes('court') || name.includes('gym') || name.includes('stadium') || name.includes('sport')) return '⚽';
+  if (name.includes('projector') || name.includes('equipment') || name.includes('device') || name.includes('computer')) return '💻';
+  if (name.includes('library') || name.includes('study') || name.includes('book')) return '📖';
+  if (name.includes('classroom') || name.includes('class') || name.includes('room')) return '📚';
+
+  return '🏫';
+};
 
 const AdminDashboard = () => {
   const [analytics, setAnalytics] = useState(null);
@@ -89,72 +141,47 @@ const AdminDashboard = () => {
   const totalBookings = analytics?.totalBookings || 0;
   const topResources = analytics?.topResources || [];
 
-  const statCards = [
+  const primaryStatCards = [
     {
       title: 'Total Bookings',
       value: totalBookings,
       icon: LayoutDashboard,
-      gradient: 'from-blue-500 to-blue-600',
-      bgGradient: 'from-blue-50 to-blue-100',
-      textColor: 'text-blue-600',
+      iconTone: 'bg-blue-100 text-blue-700',
+      note: 'All booking records',
       clickable: false,
     },
     {
       title: 'Pending',
       value: stats.pending || 0,
       icon: Clock,
-      gradient: 'from-yellow-500 to-orange-500',
-      bgGradient: 'from-yellow-50 to-orange-100',
-      textColor: 'text-orange-600',
+      iconTone: 'bg-amber-100 text-amber-700',
+      note: 'Needs approval',
       clickable: true,
       onClick: () => navigate('/admin/approvals'),
-    },
-    {
-      title: 'Approved',
-      value: stats.approved || 0,
-      icon: CheckCircle,
-      gradient: 'from-green-500 to-emerald-600',
-      bgGradient: 'from-green-50 to-emerald-100',
-      textColor: 'text-green-600',
-      clickable: false,
-    },
-    {
-      title: 'Completed',
-      value: stats.completed || 0,
-      icon: Activity,
-      gradient: 'from-blue-500 to-cyan-500',
-      bgGradient: 'from-blue-50 to-cyan-100',
-      textColor: 'text-cyan-600',
-      clickable: false,
-    },
-    {
-      title: 'Rejected',
-      value: stats.rejected || 0,
-      icon: XCircle,
-      gradient: 'from-red-500 to-rose-600',
-      bgGradient: 'from-red-50 to-rose-100',
-      textColor: 'text-red-600',
-      clickable: false,
     },
     {
       title: 'No-Shows',
       value: stats.no_show || 0,
       icon: AlertTriangle,
-      gradient: 'from-orange-500 to-red-500',
-      bgGradient: 'from-orange-50 to-red-100',
-      textColor: 'text-orange-600',
+      iconTone: 'bg-orange-100 text-orange-700',
+      note: 'Attendance risk',
       clickable: true,
       onClick: () => navigate('/admin/no-shows'),
     },
     {
-      title: 'Cancelled',
-      value: stats.cancelled || 0,
-      icon: Ban,
-      gradient: 'from-gray-500 to-gray-600',
-      bgGradient: 'from-gray-50 to-gray-100',
-      textColor: 'text-gray-600',
+      title: 'Completed',
+      value: stats.completed || 0,
+      icon: Activity,
+      iconTone: 'bg-emerald-100 text-emerald-700',
+      note: 'Successfully used',
       clickable: false,
     },
+  ];
+
+  const secondaryStats = [
+    { label: 'Approved', value: stats.approved || 0, tone: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: CheckCircle },
+    { label: 'Rejected', value: stats.rejected || 0, tone: 'bg-red-50 text-red-700 border-red-200', icon: XCircle },
+    { label: 'Cancelled', value: stats.cancelled || 0, tone: 'bg-slate-50 text-slate-700 border-slate-200', icon: AlertOctagon },
   ];
 
   const pieData = useMemo(
@@ -172,23 +199,23 @@ const AdminDashboard = () => {
 
   const barData = useMemo(
     () =>
-      topResources.slice(0, 8).map((resource) => ({
-        name:
-          resource.resourceName?.length > 15
-            ? `${resource.resourceName.substring(0, 15)}...`
-            : resource.resourceName || 'Unknown',
-        fullName: resource.resourceName || 'Unknown Resource',
-        bookings: resource.count || 0,
-      })),
+      topResources.slice(0, 8).map((resource) => {
+        const displayName = getResourceDisplayName(resource);
+        return {
+          name: displayName.length > 22 ? `${displayName.substring(0, 22)}...` : displayName,
+          fullName: displayName,
+          bookings: resource.count || 0,
+        };
+      }),
     [topResources]
   );
 
   const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
       return (
-        <div className="p-3 bg-white border border-gray-200 rounded-lg shadow-lg">
-          <p className="font-semibold text-gray-800">{payload[0].payload.fullName}</p>
-          <p className="text-sm text-blue-600">{payload[0].value} bookings</p>
+        <div className="px-3 py-2 bg-white border rounded-xl border-slate-200 shadow-soft">
+          <p className="text-sm font-semibold text-slate-900">{payload[0].payload.fullName}</p>
+          <p className="mt-1 text-xs font-medium text-blue-600">{formatCompactNumber(payload[0].value)} bookings</p>
         </div>
       );
     }
@@ -196,33 +223,53 @@ const AdminDashboard = () => {
     return null;
   };
 
+  const PieTooltip = ({ active, payload }) => {
+    if (!active || !payload?.length) return null;
+    const item = payload[0];
+    return (
+      <div className="px-3 py-2 bg-white border rounded-xl border-slate-200 shadow-soft">
+        <p className="text-sm font-semibold text-slate-900">{item.name}</p>
+        <p className="mt-1 text-xs font-medium text-slate-600">{item.value} bookings</p>
+      </div>
+    );
+  };
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-        <div className="text-center">
-          <div className="w-16 h-16 mx-auto mb-4 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
-          <p className="text-lg font-semibold text-gray-700">Loading dashboard...</p>
+      <div className="app-shell-bg">
+        <div className="px-4 py-8 mx-auto max-w-7xl sm:px-6 lg:px-8 animate-pulse">
+          <div className="h-10 w-72 rounded-xl bg-slate-200" />
+          <div className="h-5 mt-3 rounded-lg w-52 bg-slate-200" />
+          <div className="grid grid-cols-1 gap-6 mt-8 sm:grid-cols-2 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div key={index} className="bg-white border h-36 rounded-2xl border-slate-200" />
+            ))}
+          </div>
+          <div className="grid grid-cols-1 gap-8 mt-8 lg:grid-cols-2">
+            <div className="bg-white border h-80 rounded-2xl border-slate-200" />
+            <div className="bg-white border h-80 rounded-2xl border-slate-200" />
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+    <div className="app-shell-bg">
       <div className="px-4 py-8 mx-auto max-w-7xl sm:px-6 lg:px-8">
-        <div className="mb-8">
+        <div className="mb-8 animate-fadeIn">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">
+              <h1 className="dashboard-title">
                 Admin Dashboard
               </h1>
-              <p className="mt-2 text-lg text-gray-600">System overview and analytics</p>
+              <p className="muted-subtitle">System overview and analytics</p>
             </div>
             <button
               type="button"
               onClick={() => fetchAnalytics()}
               disabled={refreshing}
-              className="inline-flex items-center justify-center gap-2 px-5 py-3 text-white transition-all duration-200 shadow-lg rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-70"
+              className="modern-button-primary"
             >
               <RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
               {refreshing ? 'Refreshing...' : 'Refresh'}
@@ -230,30 +277,29 @@ const AdminDashboard = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 mb-8 sm:grid-cols-2 lg:grid-cols-4">
-          {statCards.map((stat) => {
+        <div className="grid grid-cols-1 gap-6 mb-5 sm:grid-cols-2 lg:grid-cols-4">
+          {primaryStatCards.map((stat) => {
             const Icon = stat.icon;
 
             return (
               <div
                 key={stat.title}
                 onClick={stat.clickable ? stat.onClick : undefined}
-                className={`relative overflow-hidden bg-white rounded-2xl shadow-lg transition-all duration-300 hover:shadow-2xl ${
+                className={`kpi-card ${
                   stat.clickable ? 'cursor-pointer hover:scale-[1.02]' : ''
                 }`}
               >
-                <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${stat.bgGradient} rounded-full blur-3xl opacity-30 -mr-16 -mt-16`}></div>
-
-                <div className="relative p-6">
+                <div className="relative">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <p className="mb-1 text-sm font-medium tracking-wider text-gray-500 uppercase">
+                      <p className="mb-1 text-xs font-semibold tracking-[0.14em] text-slate-500 uppercase">
                         {stat.title}
                       </p>
-                      <p className={`text-4xl font-bold ${stat.textColor}`}>{stat.value}</p>
+                      <p className="text-4xl font-black text-slate-900">{formatCompactNumber(stat.value)}</p>
+                      <p className="mt-1 text-xs text-slate-500">{stat.note}</p>
                     </div>
-                    <div className={`flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br ${stat.gradient} shadow-lg`}>
-                      <Icon className="w-8 h-8 text-white" />
+                    <div className={`flex items-center justify-center w-12 h-12 rounded-xl ${stat.iconTone}`}>
+                      <Icon className="w-6 h-6" />
                     </div>
                   </div>
 
@@ -269,33 +315,57 @@ const AdminDashboard = () => {
           })}
         </div>
 
+        <div className="grid grid-cols-1 gap-3 mb-8 sm:grid-cols-3">
+          {secondaryStats.map((item) => {
+            const Icon = item.icon;
+            return (
+              <div key={item.label} className={`rounded-xl border px-4 py-3 flex items-center justify-between ${item.tone}`}>
+                <div className="flex items-center gap-2">
+                  <Icon className="w-4 h-4" />
+                  <span className="text-xs font-semibold tracking-wide uppercase">{item.label}</span>
+                </div>
+                <span className="text-lg font-black">{formatCompactNumber(item.value)}</span>
+              </div>
+            );
+          })}
+        </div>
+
         <div className="grid grid-cols-1 gap-8 mb-8 lg:grid-cols-2">
-          <div className="p-6 bg-white shadow-xl rounded-2xl">
+          <div className="chart-card">
             <div className="flex items-center gap-2 mb-6">
               <BarChart3 className="w-6 h-6 text-blue-600" />
               <h3 className="text-xl font-bold text-gray-800">Booking Status Distribution</h3>
             </div>
             {pieData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={pieData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                    outerRadius={100}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {pieData.map((entry) => (
-                      <Cell key={entry.name} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
+              <div className="relative">
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={pieData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={68}
+                      outerRadius={100}
+                      paddingAngle={2}
+                      stroke="transparent"
+                      dataKey="value"
+                    >
+                      {pieData.map((entry) => (
+                        <Cell key={entry.name} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip content={<PieTooltip />} />
+                    <Legend
+                      verticalAlign="bottom"
+                      formatter={(value) => <span className="text-xs font-medium text-slate-600">{value}</span>}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <p className="text-xs font-semibold tracking-wide uppercase text-slate-500">Total</p>
+                  <p className="text-2xl font-black text-slate-900">{formatCompactNumber(totalBookings)}</p>
+                </div>
+              </div>
             ) : (
               <div className="flex items-center justify-center h-64 text-gray-400">
                 <div className="text-center">
@@ -306,19 +376,33 @@ const AdminDashboard = () => {
             )}
           </div>
 
-          <div className="p-6 bg-white shadow-xl rounded-2xl">
+          <div className="chart-card">
             <div className="flex items-center gap-2 mb-6">
               <TrendingUp className="w-6 h-6 text-blue-600" />
               <h3 className="text-xl font-bold text-gray-800">Most Booked Resources</h3>
             </div>
             {barData.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={barData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                  <YAxis allowDecimals={false} />
+                <BarChart data={barData} layout="vertical" margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="2 2" stroke="#e2e8f0" horizontal={false} />
+                  <XAxis
+                    type="number"
+                    allowDecimals={false}
+                    tick={{ fontSize: 12, fill: '#64748b' }}
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={(value) => formatCompactNumber(value)}
+                  />
+                  <YAxis
+                    type="category"
+                    dataKey="name"
+                    width={120}
+                    tick={{ fontSize: 12, fill: '#64748b' }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
                   <Tooltip content={<CustomTooltip />} />
-                  <Bar dataKey="bookings" fill="url(#adminBookingGradient)" radius={[8, 8, 0, 0]} />
+                  <Bar dataKey="bookings" fill="url(#adminBookingGradient)" radius={[0, 8, 8, 0]} barSize={18} />
                   <defs>
                     <linearGradient id="adminBookingGradient" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.85} />
@@ -338,7 +422,7 @@ const AdminDashboard = () => {
           </div>
         </div>
 
-        <div className="p-6 mb-8 bg-white shadow-xl rounded-2xl">
+        <div className="mb-8 section-card">
           <div className="flex items-center gap-2 mb-6">
             <Building2 className="w-6 h-6 text-blue-600" />
             <h3 className="text-xl font-bold text-gray-800">Top Resources by Bookings</h3>
@@ -352,23 +436,18 @@ const AdminDashboard = () => {
                 return (
                   <div
                     key={`${resource.resourceId || resource.resourceName || 'resource'}-${index}`}
-                    className="flex items-center justify-between p-4 transition-all duration-200 bg-gray-50 rounded-xl hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50"
+                    className="list-row"
                   >
                     <div className="flex items-center flex-1 gap-4">
-                      <div className={`flex items-center justify-center w-10 h-10 rounded-lg ${
-                        index === 0
-                          ? 'bg-gradient-to-br from-yellow-400 to-yellow-600'
-                          : index === 1
-                            ? 'bg-gradient-to-br from-gray-400 to-gray-600'
-                            : index === 2
-                              ? 'bg-gradient-to-br from-orange-400 to-orange-600'
-                              : 'bg-gradient-to-br from-blue-400 to-blue-600'
-                      } text-white font-bold text-sm`}>
-                        #{index + 1}
+                        <div className="relative flex items-center justify-center text-xl border w-11 h-11 rounded-xl border-slate-200 bg-slate-100">
+                          <span role="img" aria-label="resource category icon">{getResourceCategoryIcon(resource)}</span>
+                          <span className="absolute -top-2 -right-2 rounded-full bg-blue-600 text-white text-[10px] font-bold leading-none px-1.5 py-1">
+                            #{index + 1}
+                          </span>
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-gray-800 truncate">
-                          {resource.resourceName || 'Unknown Resource'}
+                          {getResourceDisplayName(resource)}
                         </p>
                         <p className="text-sm text-gray-500">{resource.count || 0} bookings</p>
                       </div>
@@ -394,7 +473,7 @@ const AdminDashboard = () => {
           )}
         </div>
 
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[
             {
               title: 'Pending Approvals',
@@ -433,14 +512,13 @@ const AdminDashboard = () => {
               <button
                 key={action.title}
                 onClick={() => navigate(action.path)}
-                className="relative p-6 overflow-hidden text-left transition-all duration-300 bg-white shadow-lg group rounded-2xl hover:shadow-2xl hover:scale-[1.02]"
+                className="p-4 text-left transition-all duration-200 bg-white border shadow-sm group rounded-2xl border-slate-200 hover:border-blue-200 hover:shadow-md"
               >
-                <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${action.bgColor} rounded-full blur-3xl opacity-20 -mr-16 -mt-16 group-hover:opacity-30 transition-opacity`}></div>
                 <div className="relative">
-                  <div className={`inline-flex items-center justify-center w-14 h-14 mb-4 rounded-2xl bg-gradient-to-br ${action.color} shadow-lg`}>
+                  <div className={`inline-flex items-center justify-center w-11 h-11 mb-3 rounded-xl bg-gradient-to-br ${action.color} shadow-sm`}>
                     <Icon className="text-white w-7 h-7" />
                   </div>
-                  <h4 className="mb-1 text-lg font-bold text-gray-800">{action.title}</h4>
+                  <h4 className="mb-1 text-base font-bold text-gray-800">{action.title}</h4>
                   {action.count !== undefined && (
                     <p className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">
                       {action.count}

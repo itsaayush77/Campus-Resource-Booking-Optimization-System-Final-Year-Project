@@ -2,14 +2,16 @@ import api from "./api";
 
 const formatError = (error, fallbackMessage) => {
   console.error(error);
+
   if (!error?.response) {
     const isNetwork =
       error?.code === "ERR_NETWORK" ||
       error?.message === "Network Error";
+
     return {
       success: false,
       message: isNetwork
-        ? "Cannot reach the API. Run the backend on port 5000 (cd backend && npm run dev) with MongoDB up. If it still fails, set VITE_API_URL in frontend/.env to your API base URL."
+        ? "Cannot reach the API. Make sure the backend is running on port 5000, then restart the frontend dev server so the Vite /api proxy is active."
         : fallbackMessage,
       data: null,
     };
@@ -24,7 +26,7 @@ const formatError = (error, fallbackMessage) => {
 
   if (!message && (status === 502 || status === 503 || status === 504)) {
     message =
-      "API proxy/gateway error — the dev server could not reach the backend. Use http://127.0.0.1:5000 for the API, confirm PORT in backend/.env, and restart both servers.";
+      "API proxy/gateway error. The frontend dev server could not reach the backend on port 5000. Restart both servers and confirm the backend is healthy.";
   }
 
   return {

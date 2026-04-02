@@ -17,6 +17,8 @@ const parseDateRange = (startTime, endTime) => {
   return { start, end, valid: isValidDate(start) && isValidDate(end) };
 };
 
+const getNoShowThreshold = (date) => new Date(new Date(date).getTime() + 15 * 60 * 1000);
+
 const hasConflict = async (resourceId, startTime, endTime, ignoreBookingId = null) => {
   const query = {
     resourceId,
@@ -390,6 +392,13 @@ exports.approveBooking = async (req, res) => {
       });
     }
 
+    if (new Date() >= getNoShowThreshold(booking.startTime)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot approve booking because the check-in grace window has already passed'
+      });
+    }
+
     booking.status = 'approved';
     booking.approvedBy = req.user._id;
     booking.approvedAt = new Date();
@@ -565,6 +574,18 @@ exports.checkInBooking = async (req, res) => {
     booking.checkInTime = now;
     booking.status = 'completed';
     await booking.save();
+
+    try {
+      await createNotification({
+        userId: booking.userId,
+        type: 'booking_completed',
+        title: 'Check-In Completed',
+        message: 'You have successfully checked in and your booking is now marked as completed.',
+        relatedBooking: booking._id
+      });
+    } catch (notificationError) {
+      console.error('Failed to create completion notification:', notificationError.message);
+    }
 
     const updatedBooking = await Booking.findById(booking._id)
       .populate('resourceId', 'name location capacity type category')

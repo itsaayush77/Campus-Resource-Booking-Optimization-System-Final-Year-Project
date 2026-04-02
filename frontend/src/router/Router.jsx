@@ -4,6 +4,7 @@ import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import ProtectedRoute from '../components/ProtectedRoute';
 import AdminRoute from '../components/AdminRoute';
+import ScrollToTop from '../components/ScrollToTop';
 
 // Auth Pages
 import Login from '../pages/auth/Login';
@@ -46,6 +47,7 @@ const Router = () => {
         <div className="flex flex-col min-h-screen">
           <Navbar />
           <main className="flex-grow">
+            <ScrollToTop />
             <Routes>
               {/* Public Routes */}
               <Route path="/" element={<Home />} />
@@ -57,7 +59,7 @@ const Router = () => {
               {/* Resource Routes (Public) */}
               <Route path="/resources" element={<BrowseResources />} />
               <Route path="/resources/:type" element={<ResourcesList />} />
-              <Route path="/resources/:id" element={<ResourceDetails />} />
+              <Route path="/resource/:id" element={<ResourceDetails />} />
 
               {/* Protected User Routes */}
               <Route 

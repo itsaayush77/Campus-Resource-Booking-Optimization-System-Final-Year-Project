@@ -35,3 +35,22 @@ export const getResourceById = async (id) => {
     return formatError(error, "Failed to fetch resource details");
   }
 };
+
+export const getResourceBookings = async (id, startDate, endDate) => {
+  try {
+    const params = new URLSearchParams();
+
+    if (startDate) params.append("startDate", startDate);
+    if (endDate) params.append("endDate", endDate);
+
+    const query = params.toString();
+    const url = query
+      ? `/resources/${id}/bookings?${query}`
+      : `/resources/${id}/bookings`;
+    const response = await api.get(url);
+
+    return response.data;
+  } catch (error) {
+    return formatError(error, "Failed to fetch resource availability");
+  }
+};

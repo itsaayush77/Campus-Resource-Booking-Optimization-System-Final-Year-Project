@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { getResourceById } from '../../api/resourceApi';
+import BackButton from '../../components/BackButton';
+import ResourceAvailabilityCalendar from '../../components/ResourceAvailabilityCalendar';
 
 const CATEGORY_LABELS = {
   classroom: 'Classroom',
@@ -21,18 +23,23 @@ const ResourceDetails = () => {
 
   useEffect(() => {
     if (!id) return undefined;
+
     let cancelled = false;
+
     (async () => {
       const data = await getResourceById(id);
       if (cancelled) return;
+
       if (data.success && data.resource) {
         setResource(data.resource);
       } else {
         toast.error(data.message || 'Resource not found');
         setResource(null);
       }
+
       setLoading(false);
     })();
+
     return () => {
       cancelled = true;
     };
@@ -40,8 +47,10 @@ const ResourceDetails = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <div className="w-12 h-12 border-4 border-blue-600 rounded-full border-t-transparent animate-spin" />
+      <div className="px-4 py-10 mx-auto max-w-6xl animate-pulse">
+        <div className="h-10 w-44 rounded-xl bg-slate-200" />
+        <div className="mt-6 h-[320px] rounded-2xl bg-white border border-slate-200" />
+        <div className="mt-6 h-[440px] rounded-2xl bg-white border border-slate-200" />
       </div>
     );
   }
@@ -50,12 +59,9 @@ const ResourceDetails = () => {
     return (
       <div className="px-4 py-16 mx-auto max-w-3xl text-center">
         <p className="text-gray-600">This resource is not available.</p>
-        <Link
-          to="/resources"
-          className="inline-block mt-4 font-medium text-blue-600 hover:text-blue-800"
-        >
-          ← Back to resources
-        </Link>
+        <div className="flex justify-center mt-4">
+          <BackButton label="Back to resources" to="/resources" className="mb-0" />
+        </div>
       </div>
     );
   }
@@ -66,24 +72,27 @@ const ResourceDetails = () => {
     : 'Not specified';
   const hours =
     availability?.hoursAvailable?.start && availability?.hoursAvailable?.end
-      ? `${availability.hoursAvailable.start} – ${availability.hoursAvailable.end}`
+      ? `${availability.hoursAvailable.start} - ${availability.hoursAvailable.end}`
       : 'Not specified';
+
+  const handleSlotClick = (start, end) => {
+    const params = new URLSearchParams({
+      start: start.toISOString(),
+      end: end.toISOString(),
+    });
+
+    navigate(`/book/${resource._id}?${params.toString()}`);
+  };
 
   return (
     <div className="min-h-screen py-10 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
-      <div className="px-4 mx-auto max-w-3xl sm:px-6 lg:px-8">
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="mb-6 text-sm font-medium text-blue-600 hover:text-blue-800"
-        >
-          ← Back
-        </button>
+      <div className="px-4 mx-auto max-w-6xl sm:px-6 lg:px-8">
+        <BackButton label="Back to resources" fallback="/resources" />
 
-        <div className="p-8 bg-white shadow-xl rounded-2xl">
+        <div className="p-8 bg-white shadow-xl rounded-2xl animate-fadeIn">
           <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
             <div>
-              <p className="text-sm font-medium text-blue-600 uppercase tracking-wide">
+              <p className="text-sm font-medium tracking-wide text-blue-600 uppercase">
                 {CATEGORY_LABELS[resource.category] || resource.category}
               </p>
               <h1 className="mt-1 text-3xl font-bold text-gray-900">{resource.name}</h1>
@@ -100,7 +109,7 @@ const ResourceDetails = () => {
             </span>
           </div>
 
-          <dl className="grid gap-4 sm:grid-cols-2 mb-8">
+          <dl className="grid gap-4 mb-8 sm:grid-cols-2">
             <div>
               <dt className="text-sm font-medium text-gray-500">Location</dt>
               <dd className="text-gray-900">{resource.location}</dd>
@@ -132,17 +141,25 @@ const ResourceDetails = () => {
             <div className="mb-8">
               <h2 className="mb-2 text-lg font-semibold text-gray-900">Amenities</h2>
               <div className="flex flex-wrap gap-2">
-                {resource.amenities.map((a) => (
+                {resource.amenities.map((amenity) => (
                   <span
-                    key={a}
+                    key={amenity}
                     className="px-3 py-1 text-sm font-medium text-blue-800 rounded-lg bg-blue-50"
                   >
-                    {a}
+                    {amenity}
                   </span>
                 ))}
               </div>
             </div>
           )}
+
+          <ResourceAvailabilityCalendar
+            resourceId={resource._id}
+            resourceName={resource.name}
+            operatingHours={resource.availability?.hoursAvailable}
+            operatingDays={resource.availability?.daysAvailable || []}
+            onTimeSlotClick={handleSlotClick}
+          />
 
           <div className="flex flex-wrap gap-3">
             <Link

@@ -4,6 +4,7 @@ import Loading from './Loading';
 
 const AdminRoute = ({ children }) => {
   const { user, loading } = useAuth();
+  const isAdmin = String(user?.role || '').toLowerCase() === 'admin';
 
   if (loading) {
     return <Loading />;
@@ -13,7 +14,7 @@ const AdminRoute = ({ children }) => {
     return <Navigate to="/login" replace />;
   }
 
-  if (user.role !== 'admin') {
+  if (!isAdmin) {
     return <Navigate to="/unauthorized" replace />;
   }
 

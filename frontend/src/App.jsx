@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 
 // Components
@@ -6,6 +6,7 @@ import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/AdminRoute";
+import ScrollToTop from "./components/ScrollToTop";
 
 // Pages - Public
 import Home from "./pages/Home";
@@ -17,6 +18,7 @@ import ResetPassword from "./pages/auth/ResetPassword";
 // Pages - User
 import Dashboard from "./user/Dashboard";
 import Profile from "./user/Profile";
+import Notifications from "./user/Notifications";
 import NotFound from "./user/NotFound";
 import Unauthorized from "./user/Unauthorized";
 
@@ -38,15 +40,25 @@ import ResourceManagement from "./admin/ResourceManagement";
 import BookingApprovals from "./admin/BookingApprovals";
 import NoShowManagement from "./admin/NoShowManagement";
 import Analytics from "./admin/Analytics";
+import { useAuth } from "./context/AuthContext";
+
 
 function App() {
+  const { user, loading } = useAuth();
+  const rootElement = loading
+    ? null
+    : user
+      ? <Navigate to={String(user.role || "").toLowerCase() === "admin" ? "/admin/dashboard" : "/dashboard"} replace />
+      : <Home />;
+
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
       <Navbar />
       <main className="flex-grow">
+        <ScrollToTop />
         <Routes>
           {/* Public Routes */}
-          <Route path="/" element={<Home />} />
+          <Route path="/" element={rootElement} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -70,6 +82,14 @@ function App() {
             }
           />
           <Route
+            path="/notifications"
+            element={
+              <ProtectedRoute>
+                <Notifications />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/resources"
             element={
               <ProtectedRoute>
@@ -78,7 +98,15 @@ function App() {
             }
           />
           <Route
-            path="/resources/:id"
+            path="/resources/:type"
+            element={
+              <ProtectedRoute>
+                <ResourcesList />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/resource/:id"
             element={
               <ProtectedRoute>
                 <ResourceDetails />
@@ -129,6 +157,14 @@ function App() {
           {/* Admin Routes */}
           <Route
             path="/admin"
+            element={
+              <AdminRoute>
+                <Navigate to="/admin/dashboard" replace />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/dashboard"
             element={
               <AdminRoute>
                 <AdminDashboard />
