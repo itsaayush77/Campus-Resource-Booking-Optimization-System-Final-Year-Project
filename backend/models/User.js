@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 
 const userSchema = new mongoose.Schema({
   name: {
@@ -36,6 +37,12 @@ const userSchema = new mongoose.Schema({
   department: {
     type: String,
     trim: true
+  },
+  assignedResources: {
+    type: [mongoose.Schema.Types.ObjectId],
+    ref: 'Resource',
+    default: [],
+    description: 'Resources that staff members are assigned to manage/approve bookings for'
   },
   profilePicture: {
     type: String,
@@ -94,9 +101,9 @@ userSchema.methods.comparePassword = async function(enteredPassword) {
 
 // Generate password reset token
 userSchema.methods.getResetPasswordToken = function() {
-  const resetToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-  
-  this.resetPasswordToken = require('crypto').createHash('sha256').update(resetToken).digest('hex');
+  const resetToken = crypto.randomBytes(32).toString('hex');
+
+  this.resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
   this.resetPasswordExpire = Date.now() + 10 * 60 * 1000; // 10 minutes
   
   return resetToken;

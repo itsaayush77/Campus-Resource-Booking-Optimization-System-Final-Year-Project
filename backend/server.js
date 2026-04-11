@@ -37,6 +37,7 @@ app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/resources', require('./routes/resourceRoutes'));
 app.use('/api/bookings', require('./routes/bookingRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
+app.use('/api/staff', require('./routes/staffRoutes'));
 app.use('/api/notifications', require('./routes/notificationRoutes'));
 // app.use('/api/users', require('./routes/userRoutes'));         // Will add next
 
