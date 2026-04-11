@@ -6,14 +6,18 @@ import NotificationBell from "./NotificationBell";
 
 const Navbar = () => {
   const [isResourcesOpen, setIsResourcesOpen] = useState(false);
+  const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { user, logout } = useAuth();
   const isAdmin = String(user?.role || "").toLowerCase() === "admin";
-  const dashboardPath = isAdmin ? "/admin/dashboard" : "/dashboard";
+  const isStaff = String(user?.role || "").toLowerCase() === "staff";
+  const roleAvatar = isAdmin ? "/images/admin.png" : isStaff ? "/images/staff.png" : "/images/user.png";
+  const dashboardPath = isAdmin ? "/admin/dashboard" : isStaff ? "/staff/dashboard" : "/dashboard";
   const navigate = useNavigate();
   const location = useLocation();
-  const dropdownRef = useRef(null);
-  const timeoutRef = useRef(null);
+  const resourceDropdownRef = useRef(null);
+  const resourcesTimeoutRef = useRef(null);
+  const adminTimeoutRef = useRef(null);
 
   const handleLogout = () => {
     logout();
@@ -47,18 +51,30 @@ const Navbar = () => {
     setIsMobileMenuOpen(false);
   };
 
-  // Fix dropdown disappearing - use timeout to delay close
-  const handleMouseEnter = () => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
+  const openResourceMenu = () => {
+    if (resourcesTimeoutRef.current) {
+      clearTimeout(resourcesTimeoutRef.current);
     }
     setIsResourcesOpen(true);
   };
 
-  const handleMouseLeave = () => {
-    timeoutRef.current = setTimeout(() => {
+  const closeResourceMenu = () => {
+    resourcesTimeoutRef.current = setTimeout(() => {
       setIsResourcesOpen(false);
-    }, 150); // small delay prevents flicker
+    }, 150);
+  };
+
+  const openAdminMenu = () => {
+    if (adminTimeoutRef.current) {
+      clearTimeout(adminTimeoutRef.current);
+    }
+    setIsAdminMenuOpen(true);
+  };
+
+  const closeAdminMenu = () => {
+    adminTimeoutRef.current = setTimeout(() => {
+      setIsAdminMenuOpen(false);
+    }, 150);
   };
 
   const resourceTypes = [
@@ -81,6 +97,15 @@ const Navbar = () => {
       icon: "📖",
       path: "/resources?category=library_room",
     },
+  ];
+
+  const adminSections = [
+    { name: "Dashboard", path: "/admin/dashboard" },
+    { name: "Bookings", path: "/admin/approvals" },
+    { name: "Resources", path: "/admin/resources" },
+    { name: "Users", path: "/admin/users" },
+    { name: "Analytics", path: "/admin/analytics" },
+    { name: "No-Show Management", path: "/admin/no-shows" },
   ];
 
   return (
@@ -117,9 +142,9 @@ const Navbar = () => {
             {/* Resources Dropdown - Always visible */}
             <div
               className="relative"
-              ref={dropdownRef}
-              onMouseEnter={handleMouseEnter}
-              onMouseLeave={handleMouseLeave}
+              ref={resourceDropdownRef}
+              onMouseEnter={openResourceMenu}
+              onMouseLeave={closeResourceMenu}
             >
               <button className="flex items-center px-4 py-2 space-x-1 font-medium text-gray-700 transition duration-200 rounded-lg hover:text-blue-600 hover:bg-blue-50">
                 <span>Resources</span>
@@ -143,8 +168,8 @@ const Navbar = () => {
                 <div
                   className="absolute left-0 w-64 bg-white border border-gray-100 shadow-2xl top-full rounded-xl"
                   style={{ paddingTop: "8px" }}
-                  onMouseEnter={handleMouseEnter}
-                  onMouseLeave={handleMouseLeave}
+                  onMouseEnter={openResourceMenu}
+                  onMouseLeave={closeResourceMenu}
                 >
                   <div className="py-2">
                     <Link
@@ -199,35 +224,98 @@ const Navbar = () => {
             {user && (
               <>
                 <Link
-                  to="/dashboard"
+                  to={dashboardPath}
                   className={`px-4 py-2 font-medium transition duration-200 rounded-lg hover:text-blue-600 hover:bg-blue-50 ${
-                    location.pathname === "/dashboard"
+                    location.pathname === dashboardPath
                       ? "text-blue-600 bg-blue-50"
                       : "text-gray-700"
                   }`}
                 >
                   Dashboard
                 </Link>
-                <Link
-                  to="/my-bookings"
-                  className={`px-4 py-2 font-medium transition duration-200 rounded-lg hover:text-blue-600 hover:bg-blue-50 ${
-                    location.pathname === "/my-bookings"
-                      ? "text-blue-600 bg-blue-50"
-                      : "text-gray-700"
-                  }`}
-                >
-                  My Bookings
-                </Link>
+                {!isAdmin && (
+                  <>
+                    <Link
+                      to="/my-bookings"
+                      className={`px-4 py-2 font-medium transition duration-200 rounded-lg hover:text-blue-600 hover:bg-blue-50 ${
+                        location.pathname === "/my-bookings"
+                          ? "text-blue-600 bg-blue-50"
+                          : "text-gray-700"
+                      }`}
+                    >
+                      My Bookings
+                    </Link>
+                    <Link
+                      to="/notifications"
+                      className={`px-4 py-2 font-medium transition duration-200 rounded-lg hover:text-blue-600 hover:bg-blue-50 ${
+                        location.pathname === "/notifications"
+                          ? "text-blue-600 bg-blue-50"
+                          : "text-gray-700"
+                      }`}
+                    >
+                      Notifications
+                    </Link>
+                  </>
+                )}
                 {isAdmin && (
-  <Link
-    to="/admin"
-    className={`px-4 py-2 font-medium transition duration-200 rounded-lg hover:text-blue-600 hover:bg-blue-50 ${
-      location.pathname.startsWith('/admin') ? 'text-blue-600 bg-blue-50' : 'text-gray-700'
-    }`}
-  >
-    Admin
-  </Link>
-)}
+                  <div
+                    className="relative"
+                    onMouseEnter={openAdminMenu}
+                    onMouseLeave={closeAdminMenu}
+                  >
+                    <button className={`flex items-center px-4 py-2 space-x-1 font-medium transition duration-200 rounded-lg hover:text-blue-600 hover:bg-blue-50 ${
+                      location.pathname.startsWith('/admin') ? 'text-blue-600 bg-blue-50' : 'text-gray-700'
+                    }`}>
+                      <span>Admin Sections</span>
+                      <svg
+                        className={`w-4 h-4 transition-transform duration-200 ${isAdminMenuOpen ? "rotate-180" : ""}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 9l-7 7-7-7"
+                        />
+                      </svg>
+                    </button>
+
+                    {isAdminMenuOpen && (
+                      <div
+                        className="absolute left-0 z-30 w-64 py-2 mt-2 bg-white border border-gray-100 shadow-2xl rounded-xl"
+                        onMouseEnter={openAdminMenu}
+                        onMouseLeave={closeAdminMenu}
+                      >
+                        {adminSections.map((section) => (
+                          <Link
+                            key={section.path}
+                            to={section.path}
+                            onClick={() => setIsAdminMenuOpen(false)}
+                            className={`block px-4 py-2.5 text-sm font-medium transition duration-200 hover:bg-blue-50 ${
+                              location.pathname === section.path ? 'text-blue-600' : 'text-gray-700'
+                            }`}
+                          >
+                            {section.name}
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {isStaff && (
+                  <Link
+                    to="/staff/dashboard"
+                    className={`px-4 py-2 font-medium transition duration-200 rounded-lg hover:text-blue-600 hover:bg-blue-50 ${
+                      location.pathname === '/staff/dashboard'
+                        ? 'text-blue-600 bg-blue-50'
+                        : 'text-gray-700'
+                    }`}
+                  >
+                    Approvals
+                  </Link>
+                )}
               </>
             )}
           </div>
@@ -256,11 +344,11 @@ const Navbar = () => {
 
                 {/* User Info */}
                 <div className="flex items-center px-3 py-1 space-x-2 rounded-lg bg-blue-50">
-                  <div className="flex items-center justify-center w-8 h-8 bg-blue-600 rounded-full">
-                    <span className="text-sm font-bold text-white">
-                      {user.name?.charAt(0).toUpperCase()}
-                    </span>
-                  </div>
+                  <img
+                    src={roleAvatar}
+                    alt={`${isAdmin ? "Admin" : "User"} avatar`}
+                    className="object-cover w-8 h-8 rounded-full border border-blue-200"
+                  />
                   <div className="flex flex-col">
                     <span className="text-sm font-semibold text-gray-700">
                       {user.name}
@@ -385,28 +473,61 @@ const Navbar = () => {
     {user && (
       <>
         <Link
-          to="/dashboard"
+          to={dashboardPath}
           className="block px-4 py-2 text-gray-700 rounded-lg hover:bg-blue-50"
           onClick={() => setIsMobileMenuOpen(false)}
         >
           Dashboard
         </Link>
-        <Link
-          to="/my-bookings"
-          className="block px-4 py-2 text-gray-700 rounded-lg hover:bg-blue-50"
-          onClick={() => setIsMobileMenuOpen(false)}
-        >
-          My Bookings
-        </Link>
-       {isAdmin && (
-  <Link
-    to="/admin"
-    className="block px-4 py-2 text-gray-700 rounded-lg hover:bg-blue-50"
-    onClick={() => setIsMobileMenuOpen(false)}
-  >
-    Admin Panel
-  </Link>
-)}
+        {!isAdmin && (
+          <>
+            <Link
+              to="/my-bookings"
+              className="block px-4 py-2 text-gray-700 rounded-lg hover:bg-blue-50"
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              My Bookings
+            </Link>
+            <Link
+              to="/notifications"
+              className="block px-4 py-2 text-gray-700 rounded-lg hover:bg-blue-50"
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              Notifications
+            </Link>
+          </>
+        )}
+        {isAdmin && (
+          <div className="px-4 py-2">
+            <p className="mb-2 text-xs font-semibold tracking-[0.18em] uppercase text-blue-600">Admin Sections</p>
+            <div className="space-y-1">
+              {adminSections.map((section) => (
+                <Link
+                  key={section.path}
+                  to={section.path}
+                  className="block px-3 py-2 text-sm text-gray-700 rounded-lg hover:bg-blue-50"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  {section.name}
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+        {isStaff && (
+          <div className="px-4 py-2">
+            <p className="mb-2 text-xs font-semibold tracking-[0.18em] uppercase text-blue-600">Staff Options</p>
+            <div className="space-y-1">
+              <Link
+                to="/staff/dashboard"
+                className="block px-3 py-2 text-sm text-gray-700 rounded-lg hover:bg-blue-50"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                Booking Approvals
+              </Link>
+            </div>
+          </div>
+        )}
       </>
     )}
 
@@ -442,11 +563,11 @@ const Navbar = () => {
                 </Link>
 
                 <div className="flex items-center p-2 mb-3 space-x-2 rounded-lg bg-blue-50">
-                  <div className="flex items-center justify-center w-8 h-8 bg-blue-600 rounded-full">
-                    <span className="text-sm font-bold text-white">
-                      {user.name?.charAt(0).toUpperCase()}
-                    </span>
-                  </div>
+                  <img
+                    src={roleAvatar}
+                    alt={`${isAdmin ? "Admin" : "User"} avatar`}
+                    className="object-cover w-8 h-8 rounded-full border border-blue-200"
+                  />
                   <div>
                     <p className="text-sm font-semibold">{user.name}</p>
                     <p className="text-xs text-blue-600 capitalize">

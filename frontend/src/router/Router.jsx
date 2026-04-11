@@ -4,6 +4,7 @@ import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import ProtectedRoute from '../components/ProtectedRoute';
 import AdminRoute from '../components/AdminRoute';
+import StaffRoute from '../components/StaffRoute';
 import ScrollToTop from '../components/ScrollToTop';
 
 // Auth Pages
@@ -25,6 +26,7 @@ import BookingForm from '../pages/resources/BookingForm';
 import MyBookings from '../bookings/MyBookings';
 import BookingHistory from '../bookings/BookingHistory';
 import QRCheckIn from '../bookings/QRCheckIn';
+import ScanQR from '../bookings/ScanQR';
 
 // User Pages
 import Dashboard from '../user/Dashboard';
@@ -39,6 +41,9 @@ import BookingApprovals from '../admin/BookingApprovals';
 import ResourceManagement from '../admin/ResourceManagement';
 import Analytics from '../admin/Analytics';
 import NoShowManagement from '../admin/NoShowManagement';
+
+// Staff Pages
+import StaffDashboard from '../staff/StaffDashboard';
 
 const Router = () => {
   return (
@@ -118,6 +123,22 @@ const Router = () => {
                   </ProtectedRoute>
                 } 
               />
+              <Route 
+                path="/qr-checkin/:bookingId" 
+                element={
+                  <ProtectedRoute>
+                    <QRCheckIn />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/scan-qr" 
+                element={
+                  <ProtectedRoute>
+                    <ScanQR />
+                  </ProtectedRoute>
+                } 
+              />
 
               {/* Protected Admin Routes */}
               <Route 
@@ -166,6 +187,24 @@ const Router = () => {
                   <AdminRoute>
                     <NoShowManagement />
                   </AdminRoute>
+                } 
+              />
+
+              {/* Protected Staff Routes */}
+              <Route 
+                path="/staff" 
+                element={
+                  <StaffRoute>
+                    <Navigate to="/staff/dashboard" replace />
+                  </StaffRoute>
+                } 
+              />
+              <Route 
+                path="/staff/dashboard" 
+                element={
+                  <StaffRoute>
+                    <StaffDashboard />
+                  </StaffRoute>
                 } 
               />
 
