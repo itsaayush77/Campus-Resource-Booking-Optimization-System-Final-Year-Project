@@ -33,6 +33,7 @@ import BookingStatus from "./pages/resources/BookingStatus";
 import MyBookings from "./bookings/MyBookings";
 import BookingHistory from "./bookings/BookingHistory";
 import QRCheckIn from "./bookings/QRCheckIn";
+import ScanQR from "./bookings/ScanQR";
 
 // Pages - Admin
 import AdminDashboard from "./admin/AdminDashboard";
@@ -40,6 +41,7 @@ import ResourceManagement from "./admin/ResourceManagement";
 import BookingApprovals from "./admin/BookingApprovals";
 import NoShowManagement from "./admin/NoShowManagement";
 import Analytics from "./admin/Analytics";
+import UserManagement from "./admin/UserManagement";
 import { useAuth } from "./context/AuthContext";
 
 
@@ -153,6 +155,14 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/scan-qr"
+            element={
+              <ProtectedRoute>
+                <ScanQR />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Admin Routes */}
           <Route
@@ -200,6 +210,14 @@ function App() {
             element={
               <AdminRoute>
                 <Analytics />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/users"
+            element={
+              <AdminRoute>
+                <UserManagement />
               </AdminRoute>
             }
           />

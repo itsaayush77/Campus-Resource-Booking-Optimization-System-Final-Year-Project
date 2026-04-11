@@ -1,13 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import { LuCircleCheckBig, LuCircleX, LuClock3, LuRefreshCw, LuUsers } from 'react-icons/lu';
+import { LuCircleCheckBig, LuCircleX, LuClock3, LuDownload, LuRefreshCw, LuUsers } from 'react-icons/lu';
 import { approveBooking, getAllBookings, rejectBooking } from '../api/adminApi';
-import { signalAppDataChanged } from '../utils/dataSync';
-
-async function fetchBookingsForTab(tab) {
-  const status = tab === 'all' ? undefined : tab;
-  return getAllBookings(status);
-}
+import { signalAppDataChanged, subscribeToAppDataChanges } from '../utils/dataSync';
 
 const TABS = [
   { key: 'pending', label: 'Pending', icon: LuClock3 },
@@ -59,10 +54,14 @@ const hasApprovalWindowPassed = (booking) => {
   return Date.now() >= start.getTime() + 15 * 60 * 1000;
 };
 
+const csvEscape = (value) => {
+  const text = String(value ?? '');
+  return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+};
+
 const BookingApprovals = () => {
   const [tab, setTab] = useState('pending');
   const [allBookings, setAllBookings] = useState([]);
-  const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [rejectId, setRejectId] = useState(null);
@@ -70,40 +69,62 @@ const BookingApprovals = () => {
   const [busyId, setBusyId] = useState(null);
 
   const loadBookings = useCallback(
-    async ({ showLoader = false } = {}) => {
+    async ({ showLoader = false, silent = false } = {}) => {
       if (showLoader) {
         setLoading(true);
       } else {
         setRefreshing(true);
       }
 
-      const [allData, tabData] = await Promise.all([
-        getAllBookings(),
-        tab === 'all' ? Promise.resolve(null) : fetchBookingsForTab(tab),
-      ]);
+      const allData = await getAllBookings();
 
       if (allData.success && Array.isArray(allData.bookings)) {
         setAllBookings(allData.bookings);
-        setBookings(tab === 'all' ? allData.bookings : tabData?.bookings || []);
       } else {
-        toast.error(allData.message || 'Failed to load bookings');
+        if (!silent) {
+          toast.error(allData.message || 'Failed to load bookings');
+        }
         setAllBookings([]);
-        setBookings([]);
-      }
-
-      if (tab !== 'all' && (!tabData?.success || !Array.isArray(tabData.bookings))) {
-        toast.error(tabData?.message || `Failed to load ${tab} bookings`);
-        setBookings([]);
       }
 
       setLoading(false);
       setRefreshing(false);
     },
-    [tab]
+    []
   );
 
   useEffect(() => {
     loadBookings({ showLoader: true });
+  }, [loadBookings]);
+
+  useEffect(() => {
+    const refreshSilently = () => {
+      loadBookings({ silent: true });
+    };
+
+    const interval = window.setInterval(refreshSilently, 45000);
+    const unsubscribe = subscribeToAppDataChanges((event) => {
+      const scope = event?.scope || 'all';
+      if (scope === 'all' || scope === 'bookings' || scope === 'admin-bookings') {
+        refreshSilently();
+      }
+    });
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshSilently();
+      }
+    };
+
+    window.addEventListener('focus', refreshSilently);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.clearInterval(interval);
+      unsubscribe();
+      window.removeEventListener('focus', refreshSilently);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [loadBookings]);
 
   const counts = useMemo(
@@ -121,6 +142,14 @@ const BookingApprovals = () => {
     [allBookings]
   );
 
+  const visibleBookings = useMemo(() => {
+    if (tab === 'all') {
+      return allBookings;
+    }
+
+    return allBookings.filter((booking) => booking.status === tab);
+  }, [allBookings, tab]);
+
   const userLabel = (booking) =>
     typeof booking.userId === 'object'
       ? `${booking.userId.name || 'User'}${booking.userId.email ? ` (${booking.userId.email})` : ''}`
@@ -130,7 +159,7 @@ const BookingApprovals = () => {
     typeof booking.resourceId === 'object' ? booking.resourceId.name : 'Resource';
 
   const onApprove = async (id) => {
-    const booking = bookings.find((item) => item._id === id);
+    const booking = visibleBookings.find((item) => item._id === id);
     if (booking && hasApprovalWindowPassed(booking)) {
       toast.error('Approval window has already passed for this booking');
       return;
@@ -167,6 +196,58 @@ const BookingApprovals = () => {
     }
   };
 
+  const exportVisibleBookingsCsv = () => {
+    const headers = [
+      'Booking ID',
+      'User Name',
+      'User Email',
+      'Resource',
+      'Location',
+      'Start Time',
+      'End Time',
+      'Status',
+      'Purpose',
+      'Expected Attendees',
+      'Approved At',
+      'Rejection Reason'
+    ];
+
+    const rows = visibleBookings.map((booking) => {
+      const userName = typeof booking.userId === 'object' ? booking.userId?.name || '' : '';
+      const userEmail = typeof booking.userId === 'object' ? booking.userId?.email || '' : '';
+      const resourceName = typeof booking.resourceId === 'object' ? booking.resourceId?.name || '' : '';
+      const location = typeof booking.resourceId === 'object' ? booking.resourceId?.location || '' : '';
+
+      return [
+        booking._id,
+        userName,
+        userEmail,
+        resourceName,
+        location,
+        booking.startTime,
+        booking.endTime,
+        booking.status,
+        booking.purpose,
+        booking.expectedAttendees,
+        booking.approvedAt || '',
+        booking.rejectionReason || ''
+      ];
+    });
+
+    const csvLines = [headers, ...rows].map((line) => line.map(csvEscape).join(','));
+    const csv = csvLines.join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `admin-bookings-${tab}-${new Date().toISOString().slice(0, 10)}.csv`;
+    anchor.click();
+    window.URL.revokeObjectURL(url);
+
+    toast.success('CSV downloaded');
+  };
+
   return (
     <div className="min-h-screen px-4 py-8 bg-gray-50">
       <div className="mx-auto max-w-7xl">
@@ -183,15 +264,26 @@ const BookingApprovals = () => {
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={() => loadBookings()}
-            disabled={refreshing}
-            className="inline-flex items-center justify-center gap-2 px-5 py-3 text-base font-semibold text-white transition-all duration-200 shadow-lg rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            <LuRefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
-            {refreshing ? 'Refreshing...' : 'Refresh'}
-          </button>
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={exportVisibleBookingsCsv}
+              disabled={loading || visibleBookings.length === 0}
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 text-base font-semibold text-blue-700 transition-all duration-200 bg-white border border-blue-200 shadow-sm rounded-xl hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              <LuDownload className="w-5 h-5" />
+              Download CSV
+            </button>
+            <button
+              type="button"
+              onClick={() => loadBookings()}
+              disabled={refreshing}
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 text-base font-semibold text-white transition-all duration-200 shadow-lg rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              <LuRefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
+              {refreshing ? 'Refreshing...' : 'Refresh'}
+            </button>
+          </div>
         </div>
 
         <div className="grid gap-4 mb-8 sm:grid-cols-2 xl:grid-cols-4">
@@ -234,7 +326,7 @@ const BookingApprovals = () => {
           <div className="flex justify-center py-24">
             <div className="w-12 h-12 border-4 border-blue-600 rounded-full border-t-transparent animate-spin" />
           </div>
-        ) : bookings.length === 0 ? (
+        ) : visibleBookings.length === 0 ? (
           <div className="p-10 text-center bg-white border border-gray-200 shadow-sm rounded-2xl">
             <p className="text-lg font-medium text-gray-700">No bookings in this view.</p>
             <p className="mt-2 text-gray-500">
@@ -272,7 +364,7 @@ const BookingApprovals = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {bookings.map((booking) => (
+                  {visibleBookings.map((booking) => (
                     <tr key={booking._id} className="border-b last:border-0 align-top">
                       <td className="px-6 py-5">
                         <div className="font-semibold text-gray-900">{userLabel(booking)}</div>

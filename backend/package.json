@@ -7,6 +7,8 @@
     "dev": "node server.js",
     "dev:watch": "node --watch server.js",
     "dev:nodemon": "nodemon server.js",
+    "seed:resources": "node scripts/seedResources.js",
+    "seed:demo": "node scripts/seedDemoData.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -22,6 +24,7 @@
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.3.2",
     "express-validator": "^7.3.1",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.0.2",

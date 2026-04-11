@@ -1,7 +1,13 @@
 const User = require('../models/User');
 const { generateToken } = require('../utils/helpers');
 const crypto = require('crypto');
-const bcrypt = require('bcryptjs');
+const { sendPasswordResetEmail } = require('../services/emailService');
+
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRE || '7d';
+const isProduction = process.env.NODE_ENV === 'production';
+const shouldExposeDevResetLink = !isProduction && process.env.EXPOSE_RESET_LINK === 'true';
+const forgotPasswordMessage =
+  'If an account with that email exists, a password reset link has been sent.';
 
 const serializeUser = (user) => ({
   id: user._id,
@@ -22,7 +28,6 @@ const serializeUser = (user) => ({
 // @access  Public
 exports.register = async (req, res) => {
   try {
-    console.log(' Request body:', req.body);
     const { name, email, password, role, phoneNumber, department } = req.body;
 
     // Validation
@@ -44,12 +49,17 @@ exports.register = async (req, res) => {
 
 
     
+    // Lock role assignment for public signup: never allow direct admin creation.
+    const safeRole = ['student', 'staff'].includes(String(role || '').toLowerCase())
+      ? String(role).toLowerCase()
+      : 'student';
+
     // Create user (password will be hashed automatically by User model pre-save hook)
     const user = await User.create({
       name,
       email,
       password,
-      role: role || 'student',
+      role: safeRole,
       phoneNumber,
       department
     });
@@ -61,6 +71,7 @@ exports.register = async (req, res) => {
       success: true,
       message: 'Registration successful',
       token,
+      tokenExpiresIn: JWT_EXPIRES_IN,
       user: serializeUser(user)
     });
   } catch (error) {
@@ -156,6 +167,7 @@ exports.login = async (req, res) => {
       success: true,
       message: 'Login successful',
       token,
+      tokenExpiresIn: JWT_EXPIRES_IN,
       user: serializeUser(user)
     });
   } catch (error) {
@@ -241,10 +253,10 @@ exports.changePassword = async (req, res) => {
       });
     }
 
-    if (newPassword.length < 6) {
+    if (newPassword.length < 8 || !/^(?=.*[A-Za-z])(?=.*\d).+$/.test(newPassword)) {
       return res.status(400).json({
         success: false,
-        message: 'New password must be at least 6 characters'
+        message: 'New password must be at least 8 characters and include at least one letter and one number'
       });
     }
 
@@ -285,34 +297,65 @@ exports.forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
 
+    // Always return the same response to avoid email enumeration.
+    const safeResponse = {
+      success: true,
+      message: forgotPasswordMessage
+    };
+
     if (!email) {
-      return res.status(400).json({
-        success: false,
-        message: 'Please provide email'
-      });
+      return res.status(200).json(safeResponse);
     }
 
-    const user = await User.findOne({ email });
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const user = await User.findOne({ email: normalizedEmail });
 
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'No user found with this email'
-      });
+      return res.status(200).json(safeResponse);
     }
 
-    // Generate reset token
     const resetToken = user.getResetPasswordToken();
     await user.save({ validateBeforeSave: false });
 
-    // In production, send email with reset link
-    // For now, return token in response (ONLY FOR DEVELOPMENT)
-    res.status(200).json({
-      success: true,
-      message: 'Password reset token generated',
-      resetToken, // REMOVE THIS IN PRODUCTION
-      resetUrl: `${process.env.FRONTEND_URL}/reset-password/${resetToken}`
-    });
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const resetUrl = `${frontendUrl}/reset-password/${resetToken}`;
+
+    try {
+      const delivery = await sendPasswordResetEmail({
+        to: user.email,
+        name: user.name,
+        resetUrl,
+      });
+
+      const response = { ...safeResponse };
+      if (shouldExposeDevResetLink) {
+        response.devResetUrl = resetUrl;
+        if (delivery?.previewUrl) {
+          response.emailPreviewUrl = delivery.previewUrl;
+        }
+      }
+
+      return res.status(200).json(response);
+    } catch (emailError) {
+      if (shouldExposeDevResetLink) {
+        return res.status(200).json({
+          ...safeResponse,
+          devResetUrl: resetUrl,
+          deliveryWarning:
+            'Email delivery failed in development mode. Use devResetUrl directly for testing.',
+        });
+      }
+
+      // Avoid keeping a usable token when delivery fails in production-like mode.
+      user.resetPasswordToken = undefined;
+      user.resetPasswordExpire = undefined;
+      await user.save({ validateBeforeSave: false });
+
+      return res.status(500).json({
+        success: false,
+        message: 'Unable to send reset email at this time. Please try again later.'
+      });
+    }
   } catch (error) {
     console.error('Forgot password error:', error);
     res.status(500).json({
@@ -331,17 +374,10 @@ exports.resetPassword = async (req, res) => {
     const { newPassword } = req.body;
     const { token } = req.params;
 
-    if (!newPassword) {
+    if (!newPassword || newPassword.length < 8 || !/^(?=.*[A-Za-z])(?=.*\d).+$/.test(newPassword)) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide new password'
-      });
-    }
-
-    if (newPassword.length < 6) {
-      return res.status(400).json({
-        success: false,
-        message: 'Password must be at least 6 characters'
+        message: 'Password must be at least 8 characters and include at least one letter and one number'
       });
     }
 

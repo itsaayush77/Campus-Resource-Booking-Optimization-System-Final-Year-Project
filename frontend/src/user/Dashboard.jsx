@@ -54,6 +54,8 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const { user } = useAuth();
+  const isAdmin = String(user?.role || '').toLowerCase() === 'admin';
+  const roleAvatar = isAdmin ? '/images/admin.png' : '/images/user.png';
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -498,11 +500,11 @@ const Dashboard = () => {
             <div className="surface-card-strong p-6 bg-gradient-to-br from-blue-600 to-indigo-600">
               <div className="text-white">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="flex items-center justify-center w-12 h-12 bg-white rounded-full">
-                    <span className="text-2xl font-bold text-blue-600">
-                      {user?.name?.charAt(0).toUpperCase()}
-                    </span>
-                  </div>
+                  <img
+                    src={roleAvatar}
+                    alt={`${isAdmin ? 'Admin' : 'User'} avatar`}
+                    className="object-cover w-12 h-12 bg-white border border-white rounded-full"
+                  />
                   <div>
                     <p className="font-semibold">{user?.name}</p>
                     <p className="text-sm capitalize opacity-90">{user?.role}</p>

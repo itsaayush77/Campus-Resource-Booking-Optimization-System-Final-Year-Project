@@ -46,6 +46,14 @@ const bookingSchema = new mongoose.Schema({
     type: Date,
     default: null
   },
+  checkOutTime: {
+    type: Date,
+    default: null
+  },
+  actualUsageDuration: {
+    type: Number,
+    default: null
+  },
   approvedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -69,6 +77,11 @@ const bookingSchema = new mongoose.Schema({
   notes: {
     type: String,
     trim: true
+  },
+  noShowCount: {
+    type: Number,
+    default: 0,
+    description: 'Number of no-shows for the booking user (incremented when booking not checked-in)'
   },
   createdAt: {
     type: Date,

@@ -43,12 +43,22 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    const requestUrl = String(error?.config?.url || "");
+
     if (error?.response?.status === 401) {
       clearStoredAuth();
 
       if (window.location.pathname !== "/login") {
         window.location.href = "/login";
       }
+    }
+
+    if (
+      error?.response?.status === 403 &&
+      requestUrl.startsWith("/admin") &&
+      window.location.pathname !== "/unauthorized"
+    ) {
+      window.location.href = "/unauthorized";
     }
 
     return Promise.reject(error);

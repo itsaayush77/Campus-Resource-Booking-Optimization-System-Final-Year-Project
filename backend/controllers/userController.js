@@ -44,6 +44,86 @@ exports.getAllUsers = async (req, res) => {
   }
 };
 
+// @desc    Update user role (student <-> staff only)
+// @route   PATCH /api/admin/users/:id/role
+// @access  Private/Admin
+exports.updateUserRole = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { role } = req.body || {};
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid user ID'
+      });
+    }
+
+    const normalizedRole = String(role || '').toLowerCase();
+    if (!['student', 'staff'].includes(normalizedRole)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Role must be either student or staff'
+      });
+    }
+
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    if (user._id.toString() === req.user._id.toString()) {
+      return res.status(400).json({
+        success: false,
+        message: 'You cannot change your own role'
+      });
+    }
+
+    if (user.role === 'admin') {
+      return res.status(400).json({
+        success: false,
+        message: 'Admin role cannot be changed via this endpoint'
+      });
+    }
+
+    if (user.role === normalizedRole) {
+      return res.status(400).json({
+        success: false,
+        message: `User is already ${normalizedRole}`
+      });
+    }
+
+    user.role = normalizedRole;
+    await user.save();
+
+    try {
+      await createNotification({
+        userId: user._id,
+        type: 'role_updated',
+        title: 'Role Updated',
+        message: `Your account role has been updated to ${normalizedRole}.`
+      });
+    } catch (notificationError) {
+      console.error('Failed to create role update notification:', notificationError.message);
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `User role updated to ${normalizedRole}`,
+      user: userResponse(user)
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update user role',
+      error: error.message
+    });
+  }
+};
+
 // @desc    Toggle active status
 // @route   PATCH /api/admin/users/:id/toggle-active
 // @access  Private/Admin
@@ -96,7 +176,7 @@ exports.toggleUserActiveStatus = async (req, res) => {
 exports.suspendUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const { days, suspendedUntil } = req.body || {};
+    const { days, suspendedUntil, reason } = req.body || {};
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
@@ -146,11 +226,14 @@ exports.suspendUser = async (req, res) => {
     await user.save();
 
     try {
+      const reasonText = String(reason || '').trim();
       await createNotification({
         userId: user._id,
         type: 'account_suspended',
         title: 'Account Suspended',
-        message: `Your account has been suspended until ${suspensionEndDate.toISOString()}.`
+        message: reasonText
+          ? `Your account has been suspended until ${suspensionEndDate.toISOString()}. Reason: ${reasonText}`
+          : `Your account has been suspended until ${suspensionEndDate.toISOString()}.`
       });
     } catch (notificationError) {
       console.error('Failed to create suspension notification:', notificationError.message);

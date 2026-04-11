@@ -21,6 +21,40 @@ const parseSummaryDate = (dateInput, isEndDate = false) => {
   return date;
 };
 
+const getStartOfToday = () => {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  return date;
+};
+
+const getEndOfToday = () => {
+  const date = new Date();
+  date.setHours(23, 59, 59, 999);
+  return date;
+};
+
+const getStartOfWeek = () => {
+  const date = new Date();
+  const day = date.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  date.setDate(date.getDate() + diff);
+  date.setHours(0, 0, 0, 0);
+  return date;
+};
+
+const buildStatusMap = (counts) => {
+  const countsByStatus = BOOKING_STATUSES.reduce((accumulator, status) => {
+    accumulator[status] = 0;
+    return accumulator;
+  }, {});
+
+  counts.forEach((item) => {
+    countsByStatus[item._id] = item.count;
+  });
+
+  return countsByStatus;
+};
+
 // @desc    Get analytics summary
 // @route   GET /api/admin/analytics/summary?from=YYYY-MM-DD&to=YYYY-MM-DD
 // @access  Private/Admin
@@ -52,7 +86,21 @@ exports.getAnalyticsSummary = async (req, res) => {
       if (toDate) match.startTime.$lte = toDate;
     }
 
-    const [statusCounts, topResources, peakHours, bookingsByDay, totalBookings] = await Promise.all([
+    const todayStart = getStartOfToday();
+    const todayEnd = getEndOfToday();
+    const weekStart = getStartOfWeek();
+
+    const [
+      statusCounts,
+      topResources,
+      peakHours,
+      bookingsByDay,
+      totalBookings,
+      todayBookings,
+      weekBookings,
+      todayStatusCounts,
+      weekStatusCounts
+    ] = await Promise.all([
       Booking.aggregate([
         { $match: match },
         { $group: { _id: '$status', count: { $sum: 1 } } }
@@ -115,17 +163,34 @@ exports.getAnalyticsSummary = async (req, res) => {
           }
         }
       ]),
-      Booking.countDocuments(match)
+      Booking.countDocuments(match),
+      Booking.countDocuments({
+        startTime: { $gte: todayStart, $lte: todayEnd }
+      }),
+      Booking.countDocuments({
+        startTime: { $gte: weekStart, $lte: todayEnd }
+      }),
+      Booking.aggregate([
+        {
+          $match: {
+            startTime: { $gte: todayStart, $lte: todayEnd }
+          }
+        },
+        { $group: { _id: '$status', count: { $sum: 1 } } }
+      ]),
+      Booking.aggregate([
+        {
+          $match: {
+            startTime: { $gte: weekStart, $lte: todayEnd }
+          }
+        },
+        { $group: { _id: '$status', count: { $sum: 1 } } }
+      ])
     ]);
 
-    const countsByStatus = BOOKING_STATUSES.reduce((accumulator, status) => {
-      accumulator[status] = 0;
-      return accumulator;
-    }, {});
-
-    statusCounts.forEach((item) => {
-      countsByStatus[item._id] = item.count;
-    });
+    const countsByStatus = buildStatusMap(statusCounts);
+    const todayCountsByStatus = buildStatusMap(todayStatusCounts);
+    const weekCountsByStatus = buildStatusMap(weekStatusCounts);
 
     return res.status(200).json({
       success: true,
@@ -135,7 +200,11 @@ exports.getAnalyticsSummary = async (req, res) => {
       },
       summary: {
         totalBookings,
+        todayBookings,
+        weekBookings,
         countsByStatus,
+        todayCountsByStatus,
+        weekCountsByStatus,
         topResources,
         peakHours,
         bookingsByDay

@@ -38,12 +38,6 @@ const userSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
-  assignedResources: {
-    type: [mongoose.Schema.Types.ObjectId],
-    ref: 'Resource',
-    default: [],
-    description: 'Resources that staff members are assigned to manage/approve bookings for'
-  },
   profilePicture: {
     type: String,
     default: null

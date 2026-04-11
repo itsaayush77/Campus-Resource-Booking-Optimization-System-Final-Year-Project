@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { resetPassword as resetPasswordApi } from '../../api/authApi';
 import toast from 'react-hot-toast';
+import { LuEye, LuEyeOff } from 'react-icons/lu';
 
 const ResetPassword = () => {
   const [formData, setFormData] = useState({
@@ -9,6 +10,8 @@ const ResetPassword = () => {
     confirmPassword: ''
   });
   const [loading, setLoading] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { token } = useParams();
   const navigate = useNavigate();
 
@@ -27,8 +30,8 @@ const ResetPassword = () => {
       return;
     }
 
-    if (formData.newPassword.length < 6) {
-      toast.error('Password must be at least 6 characters!');
+    if (formData.newPassword.length < 8 || !/^(?=.*[A-Za-z])(?=.*\d).+$/.test(formData.newPassword)) {
+      toast.error('Password must be at least 8 characters and include a letter and number');
       return;
     }
 
@@ -66,30 +69,50 @@ const ResetPassword = () => {
             <label className="block mb-2 text-sm font-medium text-gray-700">
               New Password
             </label>
-            <input
-              type="password"
-              name="newPassword"
-              required
-              value={formData.newPassword}
-              onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="••••••••"
-            />
+            <div className="relative">
+              <input
+                type={showNewPassword ? 'text' : 'password'}
+                name="newPassword"
+                required
+                value={formData.newPassword}
+                onChange={handleChange}
+                className="w-full px-4 py-2 pr-11 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="••••••••"
+              />
+              <button
+                type="button"
+                onClick={() => setShowNewPassword((current) => !current)}
+                className="absolute text-gray-500 -translate-y-1/2 right-3 top-1/2 hover:text-gray-700"
+                aria-label={showNewPassword ? 'Hide new password' : 'Show new password'}
+              >
+                {showNewPassword ? <LuEyeOff className="w-5 h-5" /> : <LuEye className="w-5 h-5" />}
+              </button>
+            </div>
           </div>
 
           <div>
             <label className="block mb-2 text-sm font-medium text-gray-700">
               Confirm New Password
             </label>
-            <input
-              type="password"
-              name="confirmPassword"
-              required
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="••••••••"
-            />
+            <div className="relative">
+              <input
+                type={showConfirmPassword ? 'text' : 'password'}
+                name="confirmPassword"
+                required
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                className="w-full px-4 py-2 pr-11 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="••••••••"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword((current) => !current)}
+                className="absolute text-gray-500 -translate-y-1/2 right-3 top-1/2 hover:text-gray-700"
+                aria-label={showConfirmPassword ? 'Hide confirm new password' : 'Show confirm new password'}
+              >
+                {showConfirmPassword ? <LuEyeOff className="w-5 h-5" /> : <LuEye className="w-5 h-5" />}
+              </button>
+            </div>
           </div>
 
           <button

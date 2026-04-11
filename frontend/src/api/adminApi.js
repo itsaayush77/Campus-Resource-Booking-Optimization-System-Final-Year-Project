@@ -5,6 +5,8 @@ const formatError = (error, fallbackMessage) => {
   return {
     success: false,
     message: error?.response?.data?.message || fallbackMessage,
+    errorCode: error?.response?.data?.errorCode || null,
+    suggestion: error?.response?.data?.suggestion || null,
     data: error?.response?.data?.data || null,
   };
 };
@@ -87,6 +89,15 @@ export const unsuspendUser = async (userId) => {
     return response.data;
   } catch (error) {
     return formatError(error, "Failed to unsuspend user");
+  }
+};
+
+export const updateUserRole = async (userId, role) => {
+  try {
+    const response = await api.patch(`/admin/users/${userId}/role`, { role });
+    return response.data;
+  } catch (error) {
+    return formatError(error, "Failed to update user role");
   }
 };
 

@@ -137,9 +137,11 @@ const AdminDashboard = () => {
     };
   }, [fetchAnalytics]);
 
-  const stats = analytics?.countsByStatus || {};
+  const stats = useMemo(() => analytics?.countsByStatus || {}, [analytics]);
   const totalBookings = analytics?.totalBookings || 0;
-  const topResources = analytics?.topResources || [];
+  const todayBookings = analytics?.todayBookings || 0;
+  const weekBookings = analytics?.weekBookings || 0;
+  const topResources = useMemo(() => analytics?.topResources || [], [analytics]);
 
   const primaryStatCards = [
     {
@@ -330,6 +332,19 @@ const AdminDashboard = () => {
           })}
         </div>
 
+        <div className="grid grid-cols-1 gap-3 mb-8 sm:grid-cols-2">
+          <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-600">Today</p>
+            <p className="mt-1 text-2xl font-black text-blue-900">{formatCompactNumber(todayBookings)}</p>
+            <p className="text-xs text-blue-700">Bookings started today</p>
+          </div>
+          <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-600">This Week</p>
+            <p className="mt-1 text-2xl font-black text-indigo-900">{formatCompactNumber(weekBookings)}</p>
+            <p className="text-xs text-indigo-700">Bookings started since Monday</p>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 gap-8 mb-8 lg:grid-cols-2">
           <div className="chart-card">
             <div className="flex items-center gap-2 mb-6">
@@ -473,7 +488,7 @@ const AdminDashboard = () => {
           )}
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
           {[
             {
               title: 'Pending Approvals',
@@ -504,6 +519,13 @@ const AdminDashboard = () => {
               path: '/admin/no-shows',
               color: 'from-yellow-500 to-orange-500',
               bgColor: 'from-yellow-50 to-orange-50',
+            },
+            {
+              title: 'Manage Users',
+              icon: Activity,
+              path: '/admin/users',
+              color: 'from-indigo-500 to-blue-500',
+              bgColor: 'from-indigo-50 to-blue-50',
             },
           ].map((action) => {
             const Icon = action.icon;

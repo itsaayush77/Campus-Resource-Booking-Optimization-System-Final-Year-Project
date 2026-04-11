@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { getBookingHistory } from '../api/bookingApi';
+import { LuRefreshCw } from 'react-icons/lu';
+import { subscribeToAppDataChanges } from '../utils/dataSync';
 
 const statusStyles = {
   completed: 'bg-emerald-100 text-emerald-900',
@@ -26,20 +28,61 @@ const formatRange = (start, end) => {
 const BookingHistory = () => {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const fetchHistory = useCallback(async () => {
+  const fetchHistory = useCallback(async ({ showLoader = false, silent = false } = {}) => {
+    if (showLoader) {
+      setLoading(true);
+    } else {
+      setRefreshing(true);
+    }
+
     const data = await getBookingHistory();
     if (data.success && Array.isArray(data.bookings)) {
       setBookings(data.bookings);
     } else {
       setBookings([]);
-      toast.error(data.message || 'Failed to load booking history');
+      if (!silent) {
+        toast.error(data.message || 'Failed to load booking history');
+      }
     }
+
     setLoading(false);
+    setRefreshing(false);
   }, []);
 
   useEffect(() => {
-    fetchHistory();
+    fetchHistory({ showLoader: true });
+  }, [fetchHistory]);
+
+  useEffect(() => {
+    const refreshSilently = () => {
+      fetchHistory({ silent: true });
+    };
+
+    const interval = window.setInterval(refreshSilently, 45000);
+    const unsubscribe = subscribeToAppDataChanges((event) => {
+      const scope = event?.scope || 'all';
+      if (scope === 'all' || scope === 'bookings' || scope === 'admin-bookings' || scope === 'booking-history') {
+        refreshSilently();
+      }
+    });
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshSilently();
+      }
+    };
+
+    window.addEventListener('focus', refreshSilently);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.clearInterval(interval);
+      unsubscribe();
+      window.removeEventListener('focus', refreshSilently);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [fetchHistory]);
 
   return (
@@ -50,12 +93,23 @@ const BookingHistory = () => {
             <h1 className="text-3xl font-bold text-gray-900">Booking History</h1>
             <p className="mt-1 text-gray-600">Completed, cancelled, rejected, and no-show bookings</p>
           </div>
-          <Link
-            to="/my-bookings"
-            className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700"
-          >
-            View active bookings
-          </Link>
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() => fetchHistory()}
+              disabled={refreshing}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-200 rounded-lg hover:border-blue-200 disabled:opacity-70"
+            >
+              <LuRefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+              {refreshing ? 'Refreshing...' : 'Refresh'}
+            </button>
+            <Link
+              to="/my-bookings"
+              className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+            >
+              View active bookings
+            </Link>
+          </div>
         </div>
 
         {loading ? (

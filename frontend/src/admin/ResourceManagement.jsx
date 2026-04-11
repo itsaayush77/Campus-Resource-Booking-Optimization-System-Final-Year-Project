@@ -289,7 +289,11 @@ const ResourceManagement = () => {
       }
       toast.success(response.message || 'Resource deleted');
     } else {
-      toast.error(response.message || 'Could not delete resource');
+      if (response.errorCode === 'RESOURCE_HAS_FUTURE_BOOKINGS') {
+        toast.error(response.suggestion || response.message || 'Cannot delete resource with upcoming bookings');
+      } else {
+        toast.error(response.message || 'Could not delete resource');
+      }
     }
   };
 

@@ -36,12 +36,27 @@ const STATUS_COLORS = {
 
 const formatHour = (hour) => `${String(hour).padStart(2, '0')}:00`;
 
+const formatCompactDate = (value) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+};
+
+const truncateLabel = (value, maxLength = 16) => {
+  if (!value) return 'Unknown';
+  return value.length > maxLength ? `${value.slice(0, maxLength)}...` : value;
+};
+
 const ChartTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
+
+  const entry = payload[0];
+  const displayLabel = entry?.payload?.fullName || label;
+
   return (
     <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-soft">
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-      <p className="mt-1 text-sm font-bold text-slate-900">{payload[0].value} bookings</p>
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{displayLabel}</p>
+      <p className="mt-1 text-sm font-bold text-slate-900">{entry.value} bookings</p>
     </div>
   );
 };
@@ -77,6 +92,11 @@ const Analytics = () => {
   }, []);
 
   const countsByStatus = summary?.countsByStatus || {};
+  const todayCountsByStatus = summary?.todayCountsByStatus || {};
+  const weekCountsByStatus = summary?.weekCountsByStatus || {};
+  const todayBookings = summary?.todayBookings || 0;
+  const weekBookings = summary?.weekBookings || 0;
+
   const pieData = useMemo(
     () =>
       Object.entries(countsByStatus)
@@ -92,7 +112,8 @@ const Analytics = () => {
   const topResources = useMemo(
     () =>
       (summary?.topResources || []).map((resource) => ({
-        name: resource.resourceName || 'Unknown',
+        name: truncateLabel(resource.resourceName || 'Unknown'),
+        fullName: resource.resourceName || 'Unknown',
         bookings: resource.count || 0,
       })),
     [summary]
@@ -110,7 +131,8 @@ const Analytics = () => {
   const bookingsByDay = useMemo(
     () =>
       (summary?.bookingsByDay || []).map((entry) => ({
-        date: entry.date,
+        date: formatCompactDate(entry.date),
+        fullName: entry.date,
         bookings: entry.count || 0,
       })),
     [summary]
@@ -250,6 +272,35 @@ const Analytics = () => {
               </div>
             </div>
           ))}
+        </div>
+
+        <div className="grid gap-4 mb-8 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="section-card p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Today</p>
+            <p className="mt-2 text-3xl font-black text-slate-900">{todayBookings}</p>
+            <p className="mt-1 text-sm text-slate-600">Total bookings started today</p>
+          </div>
+          <div className="section-card p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">This Week</p>
+            <p className="mt-2 text-3xl font-black text-slate-900">{weekBookings}</p>
+            <p className="mt-1 text-sm text-slate-600">Bookings started since Monday</p>
+          </div>
+          <div className="section-card p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Today By Status</p>
+            <div className="mt-3 flex flex-wrap gap-2 text-xs">
+              <span className="rounded-full bg-amber-100 px-2 py-1 font-semibold text-amber-900">Pending {todayCountsByStatus.pending || 0}</span>
+              <span className="rounded-full bg-green-100 px-2 py-1 font-semibold text-green-900">Approved {todayCountsByStatus.approved || 0}</span>
+              <span className="rounded-full bg-blue-100 px-2 py-1 font-semibold text-blue-900">Completed {todayCountsByStatus.completed || 0}</span>
+            </div>
+          </div>
+          <div className="section-card p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Week By Status</p>
+            <div className="mt-3 flex flex-wrap gap-2 text-xs">
+              <span className="rounded-full bg-amber-100 px-2 py-1 font-semibold text-amber-900">Pending {weekCountsByStatus.pending || 0}</span>
+              <span className="rounded-full bg-green-100 px-2 py-1 font-semibold text-green-900">Approved {weekCountsByStatus.approved || 0}</span>
+              <span className="rounded-full bg-blue-100 px-2 py-1 font-semibold text-blue-900">Completed {weekCountsByStatus.completed || 0}</span>
+            </div>
+          </div>
         </div>
 
         {loading ? (

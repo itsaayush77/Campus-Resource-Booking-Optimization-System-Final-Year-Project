@@ -61,6 +61,7 @@ const BookingForm = () => {
   const [purpose, setPurpose] = useState('');
   const [expectedAttendees, setExpectedAttendees] = useState('1');
   const [notes, setNotes] = useState('');
+  const [submissionHint, setSubmissionHint] = useState('');
 
   const now = useMemo(() => new Date(), []);
   const roundedNow = useMemo(
@@ -245,7 +246,19 @@ const BookingForm = () => {
       toast.success(data.message || 'Booking request submitted');
       navigate('/my-bookings');
     } else {
-      toast.error(data.message || 'Could not create booking');
+      if (data.errorCode === 'RESOURCE_INACTIVE') {
+        const hint = 'This resource is currently archived or inactive. Please pick another resource.';
+        setSubmissionHint(hint);
+        toast.error(data.message || hint);
+      } else if (data.errorCode === 'BOOKING_CONFLICT') {
+        const hint = data.suggestion || 'Try another time slot.';
+        setSubmissionHint(hint);
+        toast.error(`${data.message} ${hint}`);
+      } else if (Array.isArray(data.errors) && data.errors.length > 0) {
+        toast.error(data.errors[0]?.message || data.message || 'Could not create booking');
+      } else {
+        toast.error(data.message || 'Could not create booking');
+      }
     }
   };
 
@@ -286,6 +299,17 @@ const BookingForm = () => {
           </div>
 
           <form onSubmit={handleSubmit} className="p-8 space-y-6">
+            <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+              Request flow: <strong>Pending</strong> → Admin <strong>Approve/Reject</strong> → QR issued on approval →
+              <strong> Check-in/Check-out</strong> → <strong>Completed / No-show</strong>.
+            </div>
+
+            {submissionHint && (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                <strong>Suggestion:</strong> {submissionHint}
+              </div>
+            )}
+
             <div className="grid gap-5 lg:grid-cols-2">
               <div className="space-y-2">
                 <label className="block text-sm font-semibold text-gray-700">

@@ -4,7 +4,11 @@ const formatError = (error, fallbackMessage) => {
   console.log(error);
   return {
     success: false,
+    statusCode: error?.response?.status || null,
     message: error?.response?.data?.message || fallbackMessage,
+    errorCode: error?.response?.data?.errorCode || null,
+    suggestion: error?.response?.data?.suggestion || null,
+    errors: error?.response?.data?.errors || null,
     data: error?.response?.data?.data || null,
   };
 };
@@ -54,9 +58,12 @@ export const cancelBooking = async (bookingId, reason) => {
   }
 };
 
-export const checkInBooking = async (bookingId, token) => {
+export const checkInBooking = async (bookingId, token, mode) => {
   try {
-    const response = await api.post(`/bookings/${bookingId}/check-in`, { token });
+    const response = await api.post(`/bookings/${bookingId}/check-in`, {
+      token,
+      ...(mode ? { mode } : {}),
+    });
     return response.data;
   } catch (error) {
     return formatError(error, "Failed to check in booking");

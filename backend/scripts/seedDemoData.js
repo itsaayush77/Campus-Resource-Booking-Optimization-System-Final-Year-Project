@@ -373,28 +373,6 @@ const run = async () => {
   const seededUsers = await seedUsers();
   const seededResources = await seedResources(seededUsers.admin._id);
 
-  // Assign resources to staff
-  // Staff Coordinator manages seminar halls and common spaces
-  const staffCoordinator = seededUsers.staff[0];
-  const staffLabs = seededUsers.staff[1];
-
-  if (staffCoordinator) {
-    staffCoordinator.assignedResources = [
-      seededResources.find((r) => r.name === 'Seminar Hall S-1')?._id,
-      seededResources.find((r) => r.name === 'Library Discussion Room')?._id,
-      seededResources.find((r) => r.name === 'Portable Projector Kit')?._id,
-    ].filter(Boolean);
-    await staffCoordinator.save();
-  }
-
-  if (staffLabs) {
-    staffLabs.assignedResources = [
-      seededResources.find((r) => r.name === 'Computer Lab CL-2')?._id,
-      seededResources.find((r) => r.name === 'Chemistry Lab C-1')?._id,
-    ].filter(Boolean);
-    await staffLabs.save();
-  }
-
   const seededBookings = await seedBookings({
     admin: seededUsers.admin,
     staff: seededUsers.staff,

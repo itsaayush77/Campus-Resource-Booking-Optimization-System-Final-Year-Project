@@ -2,9 +2,25 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { cancelBooking, getBookingHistory, getMyBookings } from '../api/bookingApi';
+import { LuCamera, LuLogOut, LuRefreshCw } from 'react-icons/lu';
+import { signalAppDataChanged, subscribeToAppDataChanges } from '../utils/dataSync';
 
 const isOverduePendingBooking = (booking) =>
   booking?.status === 'pending' && new Date(booking.endTime).getTime() < Date.now();
+
+const isCheckInAvailable = (booking) => {
+  if (booking.status !== 'approved' || !booking.qrCode) return false;
+  const now = new Date();
+  const startTime = new Date(booking.startTime);
+  const endTime = new Date(booking.endTime);
+  const checkInOpenTime = new Date(startTime.getTime() - 15 * 60 * 1000);
+  return now >= checkInOpenTime && now <= endTime && !booking.checkInTime;
+};
+
+const isCheckOutAvailable = (booking) => {
+  if (booking.status !== 'approved' || !booking.qrCode) return false;
+  return booking.checkInTime && !booking.checkOutTime;
+};
 
 const mergeBookings = (...groups) => {
   const byId = new Map();
@@ -20,7 +36,7 @@ const mergeBookings = (...groups) => {
   );
 };
 
-async function fetchAllBookings() {
+async function fetchAllBookings({ silent = false } = {}) {
   const [activeResponse, historyResponse] = await Promise.all([
     getMyBookings(),
     getBookingHistory(),
@@ -35,7 +51,7 @@ async function fetchAllBookings() {
       ? historyResponse.bookings
       : [];
 
-  if (!activeResponse.success && !historyResponse.success) {
+  if (!activeResponse.success && !historyResponse.success && !silent) {
     toast.error(activeResponse.message || historyResponse.message || 'Failed to load bookings');
   }
 
@@ -51,6 +67,13 @@ const formatRange = (start, end) => {
   const e = new Date(end);
   if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime())) return '—';
   return `${s.toLocaleString()} → ${e.toLocaleTimeString()}`;
+};
+
+const formatTimestamp = (value) => {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleString();
 };
 
 const statusStyles = {
@@ -78,12 +101,21 @@ const MyBookings = () => {
   const [cancelling, setCancelling] = useState(false);
   const [qrBooking, setQrBooking] = useState(null);
   const [filter, setFilter] = useState('all');
+  const [refreshing, setRefreshing] = useState(false);
 
-  const refresh = useCallback(async () => {
-    const result = await fetchAllBookings();
+  const refresh = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) {
+      setRefreshing(true);
+    }
+
+    const result = await fetchAllBookings({ silent });
     setActiveBookings(result.activeBookings);
     setHistoryBookings(result.historyBookings);
     setBookings(result.allBookings);
+
+    if (!silent) {
+      setRefreshing(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -100,6 +132,36 @@ const MyBookings = () => {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    const refreshSilently = () => {
+      refresh({ silent: true });
+    };
+
+    const interval = window.setInterval(refreshSilently, 45000);
+    const unsubscribe = subscribeToAppDataChanges((event) => {
+      const scope = event?.scope || 'all';
+      if (scope === 'all' || scope === 'bookings' || scope === 'admin-bookings' || scope === 'booking-history') {
+        refreshSilently();
+      }
+    });
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshSilently();
+      }
+    };
+
+    window.addEventListener('focus', refreshSilently);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.clearInterval(interval);
+      unsubscribe();
+      window.removeEventListener('focus', refreshSilently);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [refresh]);
 
   const resourceName = (b) =>
     typeof b.resourceId === 'object' && b.resourceId?.name
@@ -126,6 +188,7 @@ const MyBookings = () => {
       setCancelTarget(null);
       setCancelReason('');
       await refresh();
+      signalAppDataChanged('booking-history');
     } else {
       toast.error(data.message || 'Could not cancel');
     }
@@ -133,13 +196,22 @@ const MyBookings = () => {
 
   return (
     <div className="min-h-screen py-8 bg-gray-50">
-      <div className="px-4 mx-auto max-w-4xl">
+      <div className="max-w-4xl px-4 mx-auto">
         <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">My bookings</h1>
             <p className="mt-1 text-gray-600">See your active requests and full booking history in one place.</p>
           </div>
           <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() => refresh()}
+              disabled={refreshing}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-200 rounded-lg hover:border-blue-200 disabled:opacity-70"
+            >
+              <LuRefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+              {refreshing ? 'Refreshing...' : 'Refresh'}
+            </button>
             <Link
               to="/resources"
               className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700"
@@ -186,7 +258,7 @@ const MyBookings = () => {
             <div className="w-12 h-12 border-4 border-blue-600 rounded-full border-t-transparent animate-spin" />
           </div>
         ) : filteredBookings.length === 0 ? (
-          <div className="p-8 text-center bg-white rounded-xl shadow">
+          <div className="p-8 text-center bg-white shadow rounded-xl">
             <p className="text-gray-600">
               {filter === 'active' && 'You have no active bookings.'}
               {filter === 'history' && 'You have no booking history yet.'}
@@ -226,6 +298,13 @@ const MyBookings = () => {
                     <p className="mt-1 text-sm text-gray-600">
                       <span className="font-medium">Purpose:</span> {b.purpose}
                     </p>
+                    {(b.approvedAt || b.checkInTime || b.checkOutTime) && (
+                      <div className="mt-2 space-y-1 text-xs text-gray-500">
+                        {b.approvedAt && <p>Approved at: {formatTimestamp(b.approvedAt)}</p>}
+                        {b.checkInTime && <p>Checked in at: {formatTimestamp(b.checkInTime)}</p>}
+                        {b.checkOutTime && <p>Checked out at: {formatTimestamp(b.checkOutTime)}</p>}
+                      </div>
+                    )}
                     {b.rejectionReason && (
                       <p className="mt-2 text-sm font-medium text-red-600">
                         Rejected: {b.rejectionReason}
@@ -261,24 +340,62 @@ const MyBookings = () => {
                     <button
                       type="button"
                       onClick={() => setQrBooking(b)}
-                      className="px-4 py-2 text-sm font-semibold text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100"
+                      className="px-4 py-2 text-sm font-semibold text-blue-700 rounded-lg bg-blue-50 hover:bg-blue-100"
                     >
                       View QR code
                     </button>
                   )}
-                  {b.status === 'approved' && (
+                  {isCheckInAvailable(b) && (
+                    <Link
+                      to="/scan-qr"
+                      className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700"
+                    >
+                      <LuCamera className="w-4 h-4" />
+                      Check In
+                    </Link>
+                  )}
+                  {isCheckOutAvailable(b) && (
+                    <Link
+                      to={`/qr-checkin/${b._id}`}
+                      className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-orange-600 rounded-lg hover:bg-orange-700"
+                    >
+                      <LuLogOut className="w-4 h-4" />
+                      Check Out
+                    </Link>
+                  )}
+                  {b.status === 'approved' && b.checkInTime && !b.checkOutTime && (
+                    <div className="px-3 py-2 text-xs font-semibold text-green-700 rounded-lg bg-green-50">
+                      ✓ Checked in
+                    </div>
+                  )}
+                  {b.status === 'completed' && b.checkInTime && b.checkOutTime && (
+                    <div className="px-3 py-2 text-xs font-semibold rounded-lg text-emerald-700 bg-emerald-50">
+                      ✓ Used for {b.actualUsageDuration} min
+                    </div>
+                  )}
+                  {b.status === 'completed' && !b.checkInTime && (
+                    <div className="px-3 py-2 text-xs font-semibold text-gray-700 bg-gray-100 rounded-lg">
+                      Completed without check-in
+                    </div>
+                  )}
+                  {b.status === 'no_show' && (
+                    <div className="px-3 py-2 text-xs font-semibold text-orange-700 rounded-lg bg-orange-50">
+                      No-show (not checked in)
+                    </div>
+                  )}
+                  {b.status === 'approved' && !isCheckInAvailable(b) && !isCheckOutAvailable(b) && !b.checkInTime && (
                     <Link
                       to={`/qr-checkin/${b._id}`}
                       className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700"
                     >
-                      Check-in page
+                      Manual check-in
                     </Link>
                   )}
-                  {['pending', 'approved'].includes(b.status) && (
+                  {['pending', 'approved'].includes(b.status) && !b.checkInTime && (
                     <button
                       type="button"
                       onClick={() => setCancelTarget(b)}
-                      className="px-4 py-2 text-sm font-semibold text-red-700 bg-red-50 rounded-lg hover:bg-red-100"
+                      className="px-4 py-2 text-sm font-semibold text-red-700 rounded-lg bg-red-50 hover:bg-red-100"
                     >
                       Cancel
                     </button>

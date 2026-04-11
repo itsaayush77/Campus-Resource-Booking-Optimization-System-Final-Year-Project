@@ -1,4 +1,4 @@
-const { body, validationResult } = require('express-validator');
+const { body, param, validationResult } = require('express-validator');
 
 // Validation error handler
 const validate = (req, res, next) => {
@@ -40,7 +40,7 @@ const registerValidation = [
   
   body('role')
     .optional()
-    .isIn(['student', 'staff', 'admin'])
+    .isIn(['student', 'staff'])
     .withMessage('Invalid role')
 ];
 
@@ -87,8 +87,10 @@ const changePasswordValidation = [
   body('newPassword')
     .notEmpty()
     .withMessage('New password is required')
-    .isLength({ min: 6 })
-    .withMessage('New password must be at least 6 characters')
+    .isLength({ min: 8 })
+    .withMessage('New password must be at least 8 characters')
+    .matches(/^(?=.*[A-Za-z])(?=.*\d).+$/)
+    .withMessage('New password must include at least one letter and one number')
 ];
 
 // Forgot password validation
@@ -104,11 +106,20 @@ const forgotPasswordValidation = [
 
 // Reset password validation
 const resetPasswordValidation = [
+  param('token')
+    .trim()
+    .notEmpty()
+    .withMessage('Reset token is required')
+    .isLength({ min: 20 })
+    .withMessage('Invalid reset token'),
+
   body('newPassword')
     .notEmpty()
     .withMessage('New password is required')
-    .isLength({ min: 6 })
-    .withMessage('Password must be at least 6 characters')
+    .isLength({ min: 8 })
+    .withMessage('Password must be at least 8 characters')
+    .matches(/^(?=.*[A-Za-z])(?=.*\d).+$/)
+    .withMessage('Password must include at least one letter and one number')
 ];
 
 module.exports = {

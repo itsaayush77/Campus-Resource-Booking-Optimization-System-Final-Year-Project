@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { register as registerApi } from '../../api/authApi';
 import toast from 'react-hot-toast';
+import { LuEye, LuEyeOff } from 'react-icons/lu';
 
 const Signup = () => {
   const [formData, setFormData] = useState({
@@ -13,7 +14,10 @@ const Signup = () => {
     phoneNumber: '',
     department: ''
   });
+  
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -100,8 +104,8 @@ const Signup = () => {
           </div>
 
           <div>
-  <label className="block text-sm font-medium text-gray-700 mb-2">
-    Phone Number <span className="text-gray-400 text-xs">(Optional)</span>
+  <label className="block mb-2 text-sm font-medium text-gray-700">
+    Phone Number <span className="text-xs text-gray-400">(Optional)</span>
   </label>
   <input
     type="tel"
@@ -114,8 +118,8 @@ const Signup = () => {
 </div>
 
 <div>
-  <label className="block text-sm font-medium text-gray-700 mb-2">
-    Department <span className="text-gray-400 text-xs">(Optional)</span>
+  <label className="block mb-2 text-sm font-medium text-gray-700">
+    Department <span className="text-xs text-gray-400">(Optional)</span>
   </label>
   <select
     name="department"
@@ -157,30 +161,50 @@ const Signup = () => {
             <label className="block mb-2 text-sm font-medium text-gray-700">
               Password
             </label>
-            <input
-              type="password"
-              name="password"
-              required
-              value={formData.password}
-              onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="••••••••"
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                name="password"
+                required
+                value={formData.password}
+                onChange={handleChange}
+                className="w-full px-4 py-2 pr-11 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="••••••••"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((current) => !current)}
+                className="absolute text-gray-500 -translate-y-1/2 right-3 top-1/2 hover:text-gray-700"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <LuEyeOff className="w-5 h-5" /> : <LuEye className="w-5 h-5" />}
+              </button>
+            </div>
           </div>
 
           <div>
             <label className="block mb-2 text-sm font-medium text-gray-700">
               Confirm Password
             </label>
-            <input
-              type="password"
-              name="confirmPassword"
-              required
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="••••••••"
-            />
+            <div className="relative">
+              <input
+                type={showConfirmPassword ? 'text' : 'password'}
+                name="confirmPassword"
+                required
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                className="w-full px-4 py-2 pr-11 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="••••••••"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword((current) => !current)}
+                className="absolute text-gray-500 -translate-y-1/2 right-3 top-1/2 hover:text-gray-700"
+                aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
+              >
+                {showConfirmPassword ? <LuEyeOff className="w-5 h-5" /> : <LuEye className="w-5 h-5" />}
+              </button>
+            </div>
           </div>
 
           <button

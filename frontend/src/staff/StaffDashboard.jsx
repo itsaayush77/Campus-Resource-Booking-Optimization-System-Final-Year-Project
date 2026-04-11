@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { LuCheck, LuX, LuClock, LuBarChart3 } from 'react-icons/lu';
-import axios from '../api/axios';
+import { LuClock, LuBarChart3, LuInfo } from 'react-icons/lu';
 import staffApi from '../api/staffApi';
 import Loading from '../components/Loading';
 import StatCard from '../components/StatCard';
@@ -13,8 +12,6 @@ const StaffDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [pendingBookings, setPendingBookings] = useState([]);
   const [analytics, setAnalytics] = useState(null);
-  const [rejectReason, setRejectReason] = useState({});
-  const [processingBookingId, setProcessingBookingId] = useState(null);
 
   useEffect(() => {
     fetchDashboardData();
@@ -35,55 +32,6 @@ const StaffDashboard = () => {
       toast.error(error.response?.data?.message || 'Failed to load dashboard');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleApprove = async (bookingId) => {
-    try {
-      setProcessingBookingId(bookingId);
-      await staffApi.approveStaffBooking(bookingId);
-      toast.success('Booking approved successfully');
-      
-      // Remove from pending list and refresh
-      setPendingBookings(pendingBookings.filter((b) => b._id !== bookingId));
-      
-      // Refresh data
-      fetchDashboardData();
-    } catch (error) {
-      console.error('Error approving booking:', error);
-      toast.error(error.response?.data?.message || 'Failed to approve booking');
-    } finally {
-      setProcessingBookingId(null);
-    }
-  };
-
-  const handleReject = async (bookingId) => {
-    const reason = rejectReason[bookingId] || '';
-    if (!reason.trim()) {
-      toast.error('Please enter a rejection reason');
-      return;
-    }
-
-    try {
-      setProcessingBookingId(bookingId);
-      await staffApi.rejectStaffBooking(bookingId, { reason });
-      toast.success('Booking rejected successfully');
-      
-      // Remove from pending list and refresh
-      setPendingBookings(pendingBookings.filter((b) => b._id !== bookingId));
-      setRejectReason((prev) => {
-        const updated = { ...prev };
-        delete updated[bookingId];
-        return updated;
-      });
-      
-      // Refresh data
-      fetchDashboardData();
-    } catch (error) {
-      console.error('Error rejecting booking:', error);
-      toast.error(error.response?.data?.message || 'Failed to reject booking');
-    } finally {
-      setProcessingBookingId(null);
     }
   };
 
@@ -110,14 +58,36 @@ const StaffDashboard = () => {
 
   return (
     <div className="dashboard-container">
-      {/* Header with Staff Profile */}
+      {/* Header */}
       <div className="admin-dashboard-header">
         <div className="profile-section">
           <img src="/images/staff.png" alt="Staff" className="profile-image" />
           <div className="profile-info">
             <h1>Staff Dashboard</h1>
-            <p className="subtitle">Manage booking approvals for your assigned resources</p>
+            <p className="subtitle">View pending bookings and system analytics</p>
           </div>
+        </div>
+      </div>
+
+      {/* Important Notice */}
+      <div className="alert alert-info" style={{
+        marginBottom: '20px',
+        padding: '15px',
+        backgroundColor: '#e0f2fe',
+        border: '1px solid #0284c7',
+        borderRadius: '6px',
+        display: 'flex',
+        gap: '10px',
+        alignItems: 'flex-start'
+      }}>
+        <LuInfo size={20} style={{ color: '#0284c7', flexShrink: 0, marginTop: '2px' }} />
+        <div>
+          <p style={{ margin: 0, color: '#0c4a6e', fontWeight: 500 }}>
+            Booking approvals are now handled by administrators only.
+          </p>
+          <p style={{ margin: '5px 0 0 0', color: '#0c4a6e', fontSize: '0.9em' }}>
+            Admins can approve or reject pending bookings. Staff members can view pending bookings for reference.
+          </p>
         </div>
       </div>
 
@@ -133,14 +103,14 @@ const StaffDashboard = () => {
           <StatCard
             title="Approved"
             value={analytics.approvedBookings || 0}
-            icon={<LuCheck size={24} />}
+            icon={<LuBarChart3 size={24} />}
             color="#10b981"
           />
           <StatCard
-            title="Assigned Resources"
-            value={analytics.assignedResourceCount || 0}
+            title="Rejected"
+            value={analytics.rejectedBookings || 0}
             icon={<LuBarChart3 size={24} />}
-            color="#3b82f6"
+            color="#ef4444"
           />
           <StatCard
             title="Utilization Rate"
@@ -151,18 +121,18 @@ const StaffDashboard = () => {
         </div>
       )}
 
-      {/* Pending Bookings Section */}
+      {/* Pending Bookings Section - Read Only View */}
       <div className="section-card">
-        <h2>Pending Booking Approvals ({pendingBookings.length})</h2>
+        <h2>Pending Bookings ({pendingBookings.length})</h2>
 
         {pendingBookings.length === 0 ? (
           <div className="empty-state">
-            <p>No pending bookings for your assigned resources</p>
+            <p>No pending bookings at the moment</p>
           </div>
         ) : (
           <div className="bookings-list">
             {pendingBookings.map((booking) => (
-              <div key={booking._id} className="booking-approval-card">
+              <div key={booking._id} className="booking-approval-card" style={{ opacity: 0.9 }}>
                 <div className="booking-header">
                   <div className="booking-resource">
                     <h3>{booking.resourceId?.name}</h3>
@@ -198,70 +168,17 @@ const StaffDashboard = () => {
                   )}
                 </div>
 
-                <div className="booking-actions">
-                  <div className="action-buttons">
-                    <button
-                      className="btn btn-approve"
-                      onClick={() => handleApprove(booking._id)}
-                      disabled={processingBookingId === booking._id}
-                    >
-                      <LuCheck size={18} />
-                      {processingBookingId === booking._id ? 'Processing...' : 'Approve'}
-                    </button>
-                    <button
-                      className="btn btn-reject-toggle"
-                      onClick={() => {
-                        // Show rejection reason input if not shown
-                        const element = document.getElementById(`reject-${booking._id}`);
-                        if (element) {
-                          element.style.display =
-                            element.style.display === 'none' ? 'block' : 'none';
-                        }
-                      }}
-                    >
-                      <LuX size={18} />
-                      Reject
-                    </button>
-                  </div>
-
-                  <div
-                    id={`reject-${booking._id}`}
-                    className="rejection-reason-input"
-                    style={{ display: 'none' }}
-                  >
-                    <textarea
-                      placeholder="Enter reason for rejection (required)..."
-                      value={rejectReason[booking._id] || ''}
-                      onChange={(e) =>
-                        setRejectReason((prev) => ({
-                          ...prev,
-                          [booking._id]: e.target.value,
-                        }))
-                      }
-                      className="reason-textarea"
-                    />
-                    <div className="rejection-action-buttons">
-                      <button
-                        className="btn btn-confirm-reject"
-                        onClick={() => handleReject(booking._id)}
-                        disabled={
-                          processingBookingId === booking._id ||
-                          !rejectReason[booking._id]?.trim()
-                        }
-                      >
-                        Confirm Rejection
-                      </button>
-                      <button
-                        className="btn btn-cancel-reject"
-                        onClick={() => {
-                          const element = document.getElementById(`reject-${booking._id}`);
-                          if (element) element.style.display = 'none';
-                        }}
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
+                <div style={{
+                  padding: '15px',
+                  backgroundColor: '#f3f4f6',
+                  borderRadius: '6px',
+                  fontSize: '0.9em',
+                  color: '#6b7280',
+                  marginTop: '15px'
+                }}>
+                  <p style={{ margin: 0 }}>
+                    ℹ️ Approval/Rejection actions are available only to administrators.
+                  </p>
                 </div>
               </div>
             ))}

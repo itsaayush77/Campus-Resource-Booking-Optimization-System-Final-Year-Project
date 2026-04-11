@@ -6,7 +6,8 @@ import toast from 'react-hot-toast';
 const ForgotPassword = () => {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
-  const [resetToken, setResetToken] = useState('');
+  const [devResetUrl, setDevResetUrl] = useState('');
+  const [emailPreviewUrl, setEmailPreviewUrl] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -16,10 +17,11 @@ const ForgotPassword = () => {
       const data = await forgotPasswordApi(email);
 
       if (data.success) {
-        toast.success('Reset token generated! Check below.');
-        setResetToken(data.resetToken);
+        toast.success(data.message || 'If an account exists, a reset link has been sent.');
+        setDevResetUrl(data.devResetUrl || '');
+        setEmailPreviewUrl(data.emailPreviewUrl || '');
       } else {
-        toast.error(data.message || 'Failed to generate reset token');
+        toast.error(data.message || 'Failed to process password reset request');
       }
     } catch (error) {
       toast.error('Request failed. Please try again.');
@@ -36,7 +38,7 @@ const ForgotPassword = () => {
           Forgot Password
         </h2>
         <p className="mb-8 text-center text-gray-600">
-          Enter your email to receive a password reset token
+          Enter your email to receive a password reset link
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -59,22 +61,33 @@ const ForgotPassword = () => {
             disabled={loading}
             className="w-full px-4 py-3 font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
-            {loading ? 'Sending...' : 'Get Reset Token'}
+            {loading ? 'Sending...' : 'Send Reset Link'}
           </button>
         </form>
 
-        {resetToken && (
-          <div className="p-4 mt-6 border border-green-200 rounded-lg bg-green-50">
-            <p className="mb-2 text-sm font-medium text-green-800">Reset Token:</p>
-            <p className="p-2 font-mono text-xs text-green-700 break-all bg-white rounded">
-              {resetToken}
-            </p>
-            <Link
-              to={`/reset-password/${resetToken}`}
-              className="inline-block mt-3 text-sm text-blue-600 hover:text-blue-500"
+        {devResetUrl && (
+          <div className="p-4 mt-6 border border-amber-200 rounded-lg bg-amber-50">
+            <p className="mb-2 text-sm font-medium text-amber-800">Development Reset Link:</p>
+            <a
+              href={devResetUrl}
+              className="inline-block text-sm text-blue-600 break-all hover:text-blue-500"
             >
-              Click here to reset password →
-            </Link>
+              {devResetUrl}
+            </a>
+          </div>
+        )}
+
+        {emailPreviewUrl && (
+          <div className="p-4 mt-4 border border-blue-200 rounded-lg bg-blue-50">
+            <p className="mb-2 text-sm font-medium text-blue-800">Email Preview (Dev):</p>
+            <a
+              href={emailPreviewUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="text-sm text-blue-600 break-all hover:text-blue-500"
+            >
+              Open preview inbox message
+            </a>
           </div>
         )}
 

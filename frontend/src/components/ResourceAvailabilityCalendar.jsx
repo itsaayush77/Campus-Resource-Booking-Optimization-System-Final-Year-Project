@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import {
   LuCalendarDays,
@@ -6,8 +6,10 @@ import {
   LuChevronRight,
   LuClock3,
   LuLock,
+  LuRefreshCw,
 } from 'react-icons/lu';
 import { getResourceBookings } from '../api/resourceApi';
+import { subscribeToAppDataChanges } from '../utils/dataSync';
 
 const HOURS_IN_DAY = 24;
 const WEEK_LENGTH = 7;
@@ -15,11 +17,8 @@ const DISPLAY_END_HOUR = 17;
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const SHORT_DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-const startOfWeek = (date) => {
+const startOfDay = (date) => {
   const next = new Date(date);
-  const day = next.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  next.setDate(next.getDate() + diff);
   next.setHours(0, 0, 0, 0);
   return next;
 };
@@ -113,6 +112,11 @@ const statusMeta = {
     className: 'border-slate-200 bg-slate-200 text-slate-500',
     badgeClassName: 'bg-slate-300 text-slate-600',
   },
+  past: {
+    label: 'Past',
+    className: 'border-slate-200 bg-slate-100 text-slate-500',
+    badgeClassName: 'bg-slate-200 text-slate-600',
+  },
 };
 
 const getBookingKind = (booking) => {
@@ -128,18 +132,22 @@ const ResourceAvailabilityCalendar = ({
   operatingDays = [],
   onTimeSlotClick,
 }) => {
-  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
+  const [weekStart, setWeekStart] = useState(() => startOfDay(new Date()));
   const [resourceInfo, setResourceInfo] = useState(null);
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    if (!resourceId) return undefined;
+  const loadAvailability = useCallback(
+    async ({ showLoader = false, silent = false } = {}) => {
+      if (!resourceId) return;
 
-    let cancelled = false;
+      if (showLoader) {
+        setLoading(true);
+      } else {
+        setRefreshing(true);
+      }
 
-    const loadAvailability = async () => {
-      setLoading(true);
       const weekEnd = addDays(weekStart, WEEK_LENGTH - 1);
       const response = await getResourceBookings(
         resourceId,
@@ -147,26 +155,56 @@ const ResourceAvailabilityCalendar = ({
         formatDateParam(weekEnd)
       );
 
-      if (cancelled) return;
-
       if (response.success) {
         setResourceInfo(response.resource || null);
         setBookings(Array.isArray(response.bookings) ? response.bookings : []);
       } else {
         setResourceInfo(null);
         setBookings([]);
-        toast.error(response.message || 'Failed to load availability');
+        if (!silent) {
+          toast.error(response.message || 'Failed to load availability');
+        }
       }
 
       setLoading(false);
+      setRefreshing(false);
+    },
+    [resourceId, weekStart]
+  );
+
+  useEffect(() => {
+    loadAvailability({ showLoader: true });
+  }, [loadAvailability]);
+
+  useEffect(() => {
+    const refreshSilently = () => {
+      loadAvailability({ silent: true });
     };
 
-    loadAvailability();
+    const interval = window.setInterval(refreshSilently, 45000);
+    const unsubscribe = subscribeToAppDataChanges((event) => {
+      const scope = event?.scope || 'all';
+      if (scope === 'all' || scope === 'bookings' || scope === 'admin-bookings' || scope === 'resources') {
+        refreshSilently();
+      }
+    });
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshSilently();
+      }
+    };
+
+    window.addEventListener('focus', refreshSilently);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-      cancelled = true;
+      window.clearInterval(interval);
+      unsubscribe();
+      window.removeEventListener('focus', refreshSilently);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [resourceId, weekStart]);
+  }, [loadAvailability]);
 
   const effectiveHours = resourceInfo?.availability?.hoursAvailable || operatingHours;
   const effectiveDays = resourceInfo?.availability?.daysAvailable || operatingDays;
@@ -184,12 +222,15 @@ const ResourceAvailabilityCalendar = ({
   );
 
   const slots = useMemo(() => {
+    const now = new Date();
+
     return hourRows.flatMap((hour) =>
       weekDays.map((day) => {
         const dayName = DAY_NAMES[day.getDay()];
         const isOpenDay = effectiveDays.length === 0 || effectiveDays.includes(dayName);
         const slotStart = getSlotStart(day, hour);
         const slotEnd = getSlotEnd(day, hour);
+        const isPastSlot = slotEnd <= now;
         const booking = bookings.find((item) => {
           const bookingStart = new Date(item.startTime);
           const bookingEnd = new Date(item.endTime);
@@ -197,11 +238,13 @@ const ResourceAvailabilityCalendar = ({
           return bookingStart < slotEnd && bookingEnd > slotStart;
         });
 
-        const state = !isOpenDay
-          ? 'closed'
-          : booking
-            ? getBookingKind(booking)
-            : 'available';
+        const state = isPastSlot
+          ? 'past'
+          : !isOpenDay
+            ? 'closed'
+            : booking
+              ? getBookingKind(booking)
+              : 'available';
 
         return {
           id: `${formatDateParam(day)}-${hour}`,
@@ -209,7 +252,7 @@ const ResourceAvailabilityCalendar = ({
           booking,
           slotStart,
           slotEnd,
-          isClickable: state === 'available' && slotStart > new Date(),
+          isClickable: state === 'available' && slotStart > now,
         };
       })
     );
@@ -219,6 +262,7 @@ const ResourceAvailabilityCalendar = ({
     { key: 'available', label: 'Available', tone: 'bg-emerald-500' },
     { key: 'booked', label: 'Booked', tone: 'bg-rose-500' },
     { key: 'pending', label: 'Pending Approval', tone: 'bg-amber-500' },
+    { key: 'past', label: 'Past Slot', tone: 'bg-slate-400' },
     { key: 'closed', label: 'Not Operating', tone: 'bg-slate-500' },
   ];
 
@@ -249,6 +293,15 @@ const ResourceAvailabilityCalendar = ({
           </div>
 
           <div className="flex items-center gap-3 self-start xl:self-auto">
+            <button
+              type="button"
+              onClick={() => loadAvailability()}
+              disabled={refreshing}
+              className="inline-flex items-center justify-center w-11 h-11 transition bg-white border border-blue-100 shadow-sm rounded-2xl text-slate-700 hover:border-blue-200 hover:text-blue-700 disabled:opacity-70"
+              title="Refresh availability"
+            >
+              <LuRefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
+            </button>
             <button
               type="button"
               onClick={() => moveWeek(-1)}
@@ -285,6 +338,7 @@ const ResourceAvailabilityCalendar = ({
             <div>
               <p className="font-semibold text-slate-900">Choose a free slot, then continue to booking</p>
               <p className="mt-1 text-slate-600">The calendar shows live occupancy from {formatHourLabel(startHour)} to {formatHourLabel(endHour)}.</p>
+              <p className="mt-1 text-slate-500">Pending and booked slots mirror the same overlap rules used by booking validation.</p>
             </div>
             <div className="inline-flex items-center gap-2 px-3 py-2 font-medium text-blue-700 rounded-full bg-blue-50">
               <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
@@ -378,8 +432,11 @@ const FragmentRow = ({ hour, slots, handleSlotClick }) => (
               {!slot.booking && slot.state === 'closed' && (
                 <p className="mt-3 text-sm font-semibold leading-5">Not operating</p>
               )}
+              {!slot.booking && slot.state === 'past' && (
+                <p className="mt-3 text-sm font-semibold leading-5">Time passed</p>
+              )}
             </div>
-            {slot.state === 'closed' ? (
+            {slot.state === 'closed' || slot.state === 'past' ? (
               <LuLock className="w-4 h-4 shrink-0" />
             ) : (
               <LuClock3 className="w-4 h-4 shrink-0" />
