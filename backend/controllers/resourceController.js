@@ -169,7 +169,8 @@ exports.getResourceBookings = async (req, res) => {
 
     const bookings = await Booking.find({
       resourceId: id,
-      status: { $in: ['pending', 'approved', 'completed', 'no_show'] },
+      // Keep availability aligned with booking conflict logic (pending + approved only).
+      status: { $in: ['pending', 'approved'] },
       startTime: { $lt: endDate },
       endTime: { $gt: startDate }
     })
@@ -268,6 +269,22 @@ exports.deleteResource = async (req, res) => {
       });
     }
 
+    const now = new Date();
+    const futureBookingsCount = await Booking.countDocuments({
+      resourceId: id,
+      status: { $in: ['pending', 'approved'] },
+      endTime: { $gt: now }
+    });
+
+    if (futureBookingsCount > 0) {
+      return res.status(409).json({
+        success: false,
+        message: `Cannot delete this resource because it has ${futureBookingsCount} upcoming active booking(s).`,
+        errorCode: 'RESOURCE_HAS_FUTURE_BOOKINGS',
+        suggestion: 'Deactivate (archive) the resource instead, then resolve or cancel future bookings first.'
+      });
+    }
+
     const resource = await Resource.findByIdAndDelete(id);
 
     if (!resource) {
@@ -327,6 +344,41 @@ exports.toggleResourceStatus = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to toggle resource status',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get resources assigned to staff member
+// @route   GET /api/staff/resources
+// @access  Private/Staff
+exports.getStaffDepartmentResources = async (req, res) => {
+  try {
+    const User = require('../models/User');
+    
+    const user = await User.findById(req.user._id).select('assignedResources');
+    
+    if (!user || !user.assignedResources.length) {
+      return res.status(200).json({
+        success: true,
+        message: 'No resources assigned',
+        resources: []
+      });
+    }
+
+    const resources = await Resource.find({
+      _id: { $in: user.assignedResources }
+    }).lean();
+
+    return res.status(200).json({
+      success: true,
+      message: `Found ${resources.length} assigned resource(s)`,
+      resources
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch assigned resources',
       error: error.message
     });
   }
