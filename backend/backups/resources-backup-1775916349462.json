@@ -1,0 +1,268 @@
+[
+  {
+    "_id": "69da49c8ff92feff7c94a0de",
+    "name": "Classroom A-101",
+    "type": "Lecture Room",
+    "category": "classroom",
+    "location": "Academic Block A",
+    "capacity": 45,
+    "description": "Smart classroom for lectures and tutorials.",
+    "photos": [],
+    "amenities": [
+      "Projector",
+      "Whiteboard",
+      "Wi-Fi"
+    ],
+    "availability": {
+      "daysAvailable": [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday"
+      ],
+      "hoursAvailable": {
+        "start": "08:00",
+        "end": "17:00"
+      }
+    },
+    "isActive": true,
+    "createdBy": "69da49c7ff92feff7c94a0d0",
+    "createdAt": "2026-04-11T13:16:56.146Z",
+    "updatedAt": "2026-04-11T13:16:56.146Z",
+    "__v": 0
+  },
+  {
+    "_id": "69da49c8ff92feff7c94a0df",
+    "name": "Computer Lab CL-2",
+    "type": "Computer Laboratory",
+    "category": "lab",
+    "location": "IT Block",
+    "capacity": 35,
+    "description": "Lab with 35 high-spec systems.",
+    "photos": [],
+    "amenities": [
+      "Desktop PCs",
+      "Projector",
+      "Air Conditioning"
+    ],
+    "availability": {
+      "daysAvailable": [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday"
+      ],
+      "hoursAvailable": {
+        "start": "08:00",
+        "end": "18:00"
+      }
+    },
+    "isActive": true,
+    "createdBy": "69da49c7ff92feff7c94a0d0",
+    "createdAt": "2026-04-11T13:16:56.147Z",
+    "updatedAt": "2026-04-11T13:16:56.147Z",
+    "__v": 0
+  },
+  {
+    "_id": "69da49c8ff92feff7c94a0e0",
+    "name": "Seminar Hall S-1",
+    "type": "Seminar Hall",
+    "category": "seminar_hall",
+    "location": "Main Building",
+    "capacity": 80,
+    "description": "Seminar hall for workshops and guest lectures.",
+    "photos": [],
+    "amenities": [
+      "PA System",
+      "Projector",
+      "Podium"
+    ],
+    "availability": {
+      "daysAvailable": [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday"
+      ],
+      "hoursAvailable": {
+        "start": "09:00",
+        "end": "18:00"
+      }
+    },
+    "isActive": true,
+    "createdBy": "69da49c7ff92feff7c94a0d0",
+    "createdAt": "2026-04-11T13:16:56.147Z",
+    "updatedAt": "2026-04-11T13:16:56.147Z",
+    "__v": 0
+  },
+  {
+    "_id": "69da49c8ff92feff7c94a0e1",
+    "name": "Indoor Sports Arena",
+    "type": "Sports Facility",
+    "category": "sports_facility",
+    "location": "Sports Complex",
+    "capacity": 60,
+    "description": "Indoor multi-sports facility.",
+    "photos": [],
+    "amenities": [
+      "Changing Room",
+      "Scoreboard"
+    ],
+    "availability": {
+      "daysAvailable": [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+        "Sunday"
+      ],
+      "hoursAvailable": {
+        "start": "06:00",
+        "end": "21:00"
+      }
+    },
+    "isActive": true,
+    "createdBy": "69da49c7ff92feff7c94a0d0",
+    "createdAt": "2026-04-11T13:16:56.147Z",
+    "updatedAt": "2026-04-11T13:16:56.147Z",
+    "__v": 0
+  },
+  {
+    "_id": "69da49c8ff92feff7c94a0e2",
+    "name": "Main Auditorium",
+    "type": "Auditorium",
+    "category": "auditorium",
+    "location": "Central Hall",
+    "capacity": 300,
+    "description": "Main event auditorium.",
+    "photos": [],
+    "amenities": [
+      "Stage",
+      "Lighting",
+      "Sound System"
+    ],
+    "availability": {
+      "daysAvailable": [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday"
+      ],
+      "hoursAvailable": {
+        "start": "09:00",
+        "end": "20:00"
+      }
+    },
+    "isActive": true,
+    "createdBy": "69da49c7ff92feff7c94a0d0",
+    "createdAt": "2026-04-11T13:16:56.147Z",
+    "updatedAt": "2026-04-11T13:16:56.147Z",
+    "__v": 0
+  },
+  {
+    "_id": "69da49c8ff92feff7c94a0e3",
+    "name": "Library Discussion Room",
+    "type": "Library Room",
+    "category": "library_room",
+    "location": "Central Library",
+    "capacity": 20,
+    "description": "Quiet room for small group study.",
+    "photos": [],
+    "amenities": [
+      "Whiteboard",
+      "Power Outlets"
+    ],
+    "availability": {
+      "daysAvailable": [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday"
+      ],
+      "hoursAvailable": {
+        "start": "08:00",
+        "end": "20:00"
+      }
+    },
+    "isActive": true,
+    "createdBy": "69da49c7ff92feff7c94a0d0",
+    "createdAt": "2026-04-11T13:16:56.147Z",
+    "updatedAt": "2026-04-11T13:16:56.147Z",
+    "__v": 0
+  },
+  {
+    "_id": "69da49c8ff92feff7c94a0e4",
+    "name": "Portable Projector Kit",
+    "type": "Equipment",
+    "category": "equipment",
+    "location": "Equipment Desk",
+    "capacity": 1,
+    "description": "Projector + screen + HDMI cable.",
+    "photos": [],
+    "amenities": [
+      "Projector",
+      "Portable Screen"
+    ],
+    "availability": {
+      "daysAvailable": [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday"
+      ],
+      "hoursAvailable": {
+        "start": "09:00",
+        "end": "17:00"
+      }
+    },
+    "isActive": true,
+    "createdBy": "69da49c7ff92feff7c94a0d0",
+    "createdAt": "2026-04-11T13:16:56.148Z",
+    "updatedAt": "2026-04-11T13:16:56.148Z",
+    "__v": 0
+  },
+  {
+    "_id": "69da49c8ff92feff7c94a0e5",
+    "name": "Chemistry Lab C-1",
+    "type": "Science Laboratory",
+    "category": "lab",
+    "location": "Science Block",
+    "capacity": 25,
+    "description": "Chemistry practical sessions lab.",
+    "photos": [],
+    "amenities": [
+      "Fume Hood",
+      "Safety Kit"
+    ],
+    "availability": {
+      "daysAvailable": [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday"
+      ],
+      "hoursAvailable": {
+        "start": "08:00",
+        "end": "16:00"
+      }
+    },
+    "isActive": false,
+    "createdBy": "69da49c7ff92feff7c94a0d0",
+    "createdAt": "2026-04-11T13:16:56.148Z",
+    "updatedAt": "2026-04-11T13:16:56.148Z",
+    "__v": 0
+  }
+]

@@ -10,6 +10,8 @@ const Notification = require('../models/Notification');
 
 dotenv.config();
 
+const hasForceFlag = process.argv.includes('--force');
+
 const makeDate = (dayOffset, hours, minutes = 0) => {
   const date = new Date();
   date.setDate(date.getDate() + dayOffset);
@@ -360,6 +362,12 @@ const seedNotifications = async ({ users, bookings }) => {
 const run = async () => {
   if (!process.env.MONGO_URI) {
     throw new Error('MONGO_URI is required. Add it to backend/.env before seeding.');
+  }
+
+  if (!hasForceFlag) {
+    throw new Error(
+      'Refusing to run destructive demo seed without --force. Use: npm run seed:demo:force'
+    );
   }
 
   await mongoose.connect(process.env.MONGO_URI);

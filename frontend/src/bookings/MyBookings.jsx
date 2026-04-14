@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { cancelBooking, getBookingHistory, getMyBookings } from '../api/bookingApi';
 import { LuCamera, LuLogOut, LuRefreshCw } from 'react-icons/lu';
 import { signalAppDataChanged, subscribeToAppDataChanges } from '../utils/dataSync';
+import { useAuth } from '../context/AuthContext';
 
 const isOverduePendingBooking = (booking) =>
   booking?.status === 'pending' && new Date(booking.endTime).getTime() < Date.now();
@@ -92,6 +93,8 @@ const FILTERS = [
 ];
 
 const MyBookings = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [activeBookings, setActiveBookings] = useState([]);
   const [historyBookings, setHistoryBookings] = useState([]);
   const [bookings, setBookings] = useState([]);
@@ -102,6 +105,12 @@ const MyBookings = () => {
   const [qrBooking, setQrBooking] = useState(null);
   const [filter, setFilter] = useState('all');
   const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    if (String(user?.role || '').toLowerCase() === 'admin') {
+      navigate('/admin/approvals', { replace: true });
+    }
+  }, [navigate, user?.role]);
 
   const refresh = useCallback(async ({ silent = false } = {}) => {
     if (!silent) {

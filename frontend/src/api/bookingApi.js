@@ -58,14 +58,22 @@ export const cancelBooking = async (bookingId, reason) => {
   }
 };
 
-export const checkInBooking = async (bookingId, token, mode) => {
+export const checkInBooking = async (bookingId, token) => {
   try {
     const response = await api.post(`/bookings/${bookingId}/check-in`, {
       token,
-      ...(mode ? { mode } : {}),
     });
     return response.data;
   } catch (error) {
     return formatError(error, "Failed to check in booking");
+  }
+};
+
+export const checkOutBooking = async (bookingId) => {
+  try {
+    const response = await api.post(`/bookings/${bookingId}/check-out`);
+    return response.data;
+  } catch (error) {
+    return formatError(error, "Failed to check out booking");
   }
 };

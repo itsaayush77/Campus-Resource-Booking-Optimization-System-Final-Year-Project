@@ -559,13 +559,13 @@ exports.rejectBooking = async (req, res) => {
   }
 };
 
-// @desc    Check in/Check out to approved booking with QR token
+// @desc    Check in to approved booking with QR token (scan QR code)
 // @route   POST /api/bookings/:id/check-in
 // @access  Private
 exports.checkInBooking = async (req, res) => {
   try {
     const { id } = req.params;
-    const { token, mode } = req.body || {};
+    const { token } = req.body || {};
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
@@ -587,7 +587,7 @@ exports.checkInBooking = async (req, res) => {
     if (!isAdmin && !isOwner) {
       return res.status(403).json({
         success: false,
-        message: 'You are not allowed to check in or check out for this booking'
+        message: 'You are not allowed to check in for this booking'
       });
     }
 
@@ -598,17 +598,19 @@ exports.checkInBooking = async (req, res) => {
       });
     }
 
+    // Verify QR token
     if (!token || token !== booking.qrCode) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid check-in token'
+        message: 'Invalid QR code. Please scan the correct QR code.'
       });
     }
 
-    if (mode === 'check-in-only' && booking.checkInTime && !booking.checkOutTime) {
+    // Already checked in
+    if (booking.checkInTime) {
       return res.status(409).json({
         success: false,
-        message: 'Already checked in. Use check-out when you are done.',
+        message: 'Already checked in. Click "End Session" when you are done using the resource.',
         errorCode: 'ALREADY_CHECKED_IN'
       });
     }
@@ -618,88 +620,136 @@ exports.checkInBooking = async (req, res) => {
     const bookingEndTime = new Date(booking.endTime);
     const checkInOpenTime = new Date(bookingStartTime.getTime() - 15 * 60 * 1000);
 
-    // Check-IN: First scan (no checkInTime yet)
-    if (!booking.checkInTime) {
-      if (now < checkInOpenTime || now > bookingEndTime) {
-        return res.status(400).json({
-          success: false,
-          message: 'Check-in is only allowed from 15 minutes before start time until end time'
-        });
-      }
-
-      booking.checkInTime = now;
-      await booking.save();
-
-      try {
-        await createNotification({
-          userId: booking.userId,
-          type: 'booking_checked_in',
-          title: 'Checked In',
-          message: `You have checked in to ${booking.resource?.name || 'the resource'}. Please check out when done.`,
-          relatedBooking: booking._id
-        });
-      } catch (notificationError) {
-        console.error('Failed to create check-in notification:', notificationError.message);
-      }
-
-      const updatedBooking = await Booking.findById(booking._id)
-        .populate('resourceId', 'name location capacity type category')
-        .populate('userId', 'name email');
-
-      return res.status(200).json({
-        success: true,
-        message: 'Checked in successfully. You can now check out when done.',
-        action: 'checked-in',
-        booking: updatedBooking
-      });
-    }
-
-    // Check-OUT: Second scan (checkInTime exists, checkOutTime is null)
-    if (booking.checkInTime && !booking.checkOutTime) {
-      booking.checkOutTime = now;
-      // Calculate actual usage duration in minutes
-      booking.actualUsageDuration = Math.round(
-        (booking.checkOutTime - booking.checkInTime) / (1000 * 60)
-      );
-      booking.status = 'completed';
-      await booking.save();
-
-      try {
-        await createNotification({
-          userId: booking.userId,
-          type: 'booking_completed',
-          title: 'Booking Completed',
-          message: `You have checked out. Actual usage: ${booking.actualUsageDuration} minutes.`,
-          relatedBooking: booking._id
-        });
-      } catch (notificationError) {
-        console.error('Failed to create check-out notification:', notificationError.message);
-      }
-
-      const updatedBooking = await Booking.findById(booking._id)
-        .populate('resourceId', 'name location capacity type category')
-        .populate('userId', 'name email');
-
-      return res.status(200).json({
-        success: true,
-        message: `Checked out successfully. Actual usage: ${booking.actualUsageDuration} minutes.`,
-        action: 'checked-out',
-        actualUsageDuration: booking.actualUsageDuration,
-        booking: updatedBooking
-      });
-    }
-
-    // Already fully checked out
-    if (booking.checkInTime && booking.checkOutTime) {
+    // Validate check-in time window (15 min before start to end time)
+    if (now < checkInOpenTime || now > bookingEndTime) {
       return res.status(400).json({
         success: false,
-        message: `Booking already completed. Check-in: ${booking.checkInTime}, Check-out: ${booking.checkOutTime}`
+        message: 'Check-in is only allowed from 15 minutes before start time until end time'
       });
     }
+
+    booking.checkInTime = now;
+    await booking.save();
+
+    try {
+      await createNotification({
+        userId: booking.userId,
+        type: 'booking_checked_in',
+        title: 'Checked In',
+        message: `You have successfully checked in. Use the resource and click "End Session" when done.`,
+        relatedBooking: booking._id
+      });
+    } catch (notificationError) {
+      console.error('Failed to create check-in notification:', notificationError.message);
+    }
+
+    const updatedBooking = await Booking.findById(booking._id)
+      .populate('resourceId', 'name location capacity type category')
+      .populate('userId', 'name email');
+
+    return res.status(200).json({
+      success: true,
+      message: 'Checked in successfully!',
+      action: 'checked-in',
+      booking: updatedBooking
+    });
   } catch (error) {
     return res.status(500).json({
       success: false,
-      message: 'Failed to process check-in/check-out',
+      message: 'Failed to process check-in',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Check out from approved booking (manual button click - no QR needed)
+// @route   POST /api/bookings/:id/check-out
+// @access  Private
+exports.checkOutBooking = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid booking ID'
+      });
+    }
+
+    const booking = await Booking.findById(id);
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: 'Booking not found'
+      });
+    }
+
+    const isAdmin = req.user.role === 'admin';
+    const isOwner = booking.userId.toString() === req.user._id.toString();
+    if (!isAdmin && !isOwner) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not allowed to check out for this booking'
+      });
+    }
+
+    // Can only check out if approved and checked in but not yet checked out
+    if (booking.status !== 'approved') {
+      return res.status(400).json({
+        success: false,
+        message: `Only approved bookings can be checked out. Current status: ${booking.status}`
+      });
+    }
+
+    if (!booking.checkInTime) {
+      return res.status(400).json({
+        success: false,
+        message: 'You must check in first before checking out'
+      });
+    }
+
+    if (booking.checkOutTime) {
+      return res.status(400).json({
+        success: false,
+        message: 'Already checked out. This booking is completed.'
+      });
+    }
+
+    const now = new Date();
+    booking.checkOutTime = now;
+    booking.actualUsageDuration = Math.round(
+      (booking.checkOutTime - booking.checkInTime) / (1000 * 60)
+    );
+    booking.status = 'completed';
+    await booking.save();
+
+    try {
+      await createNotification({
+        userId: booking.userId,
+        type: 'booking_completed',
+        title: 'Session Ended',
+        message: `You have successfully checked out. Actual usage: ${booking.actualUsageDuration} minutes.`,
+        relatedBooking: booking._id
+      });
+    } catch (notificationError) {
+      console.error('Failed to create check-out notification:', notificationError.message);
+    }
+
+    const updatedBooking = await Booking.findById(booking._id)
+      .populate('resourceId', 'name location capacity type category')
+      .populate('userId', 'name email');
+
+    return res.status(200).json({
+      success: true,
+      message: `Session ended. Actual usage: ${booking.actualUsageDuration} minutes.`,
+      action: 'checked-out',
+      actualUsageDuration: booking.actualUsageDuration,
+      booking: updatedBooking
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to process check-out',
       error: error.message
     });
   }

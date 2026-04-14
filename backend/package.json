@@ -9,6 +9,7 @@
     "dev:nodemon": "nodemon server.js",
     "seed:resources": "node scripts/seedResources.js",
     "seed:demo": "node scripts/seedDemoData.js",
+    "seed:demo:force": "node scripts/seedDemoData.js --force",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

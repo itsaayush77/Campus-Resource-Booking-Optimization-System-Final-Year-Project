@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { getBookingHistory } from '../api/bookingApi';
 import { LuRefreshCw } from 'react-icons/lu';
 import { subscribeToAppDataChanges } from '../utils/dataSync';
+import { useAuth } from '../context/AuthContext';
 
 const statusStyles = {
   completed: 'bg-emerald-100 text-emerald-900',
@@ -26,9 +27,17 @@ const formatRange = (start, end) => {
 };
 
 const BookingHistory = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    if (String(user?.role || '').toLowerCase() === 'admin') {
+      navigate('/admin/approvals', { replace: true });
+    }
+  }, [navigate, user?.role]);
 
   const fetchHistory = useCallback(async ({ showLoader = false, silent = false } = {}) => {
     if (showLoader) {

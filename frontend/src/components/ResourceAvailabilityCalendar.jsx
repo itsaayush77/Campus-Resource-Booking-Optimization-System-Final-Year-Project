@@ -16,6 +16,25 @@ const WEEK_LENGTH = 7;
 const DISPLAY_END_HOUR = 17;
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const SHORT_DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const DAY_NAME_BY_NORMALIZED = {
+  sunday: 'Sunday',
+  sun: 'Sunday',
+  monday: 'Monday',
+  mon: 'Monday',
+  tuesday: 'Tuesday',
+  tue: 'Tuesday',
+  tues: 'Tuesday',
+  wednesday: 'Wednesday',
+  wed: 'Wednesday',
+  thursday: 'Thursday',
+  thu: 'Thursday',
+  thur: 'Thursday',
+  thurs: 'Thursday',
+  friday: 'Friday',
+  fri: 'Friday',
+  saturday: 'Saturday',
+  sat: 'Saturday',
+};
 
 const startOfDay = (date) => {
   const next = new Date(date);
@@ -41,6 +60,12 @@ const parseHour = (timeValue, fallback) => {
   const [hourString] = timeValue.split(':');
   const hour = Number.parseInt(hourString, 10);
   return Number.isFinite(hour) ? hour : fallback;
+};
+
+const normalizeDayName = (value) => {
+  if (typeof value !== 'string') return null;
+  const normalized = value.trim().toLowerCase();
+  return DAY_NAME_BY_NORMALIZED[normalized] || null;
 };
 
 const formatHourLabel = (hour) => {
@@ -208,6 +233,14 @@ const ResourceAvailabilityCalendar = ({
 
   const effectiveHours = resourceInfo?.availability?.hoursAvailable || operatingHours;
   const effectiveDays = resourceInfo?.availability?.daysAvailable || operatingDays;
+  const normalizedEffectiveDays = useMemo(() => {
+    const days = Array.isArray(effectiveDays) ? effectiveDays : [];
+    const normalized = days
+      .map(normalizeDayName)
+      .filter(Boolean);
+
+    return Array.from(new Set(normalized));
+  }, [effectiveDays]);
   const startHour = parseHour(effectiveHours?.start, 7);
   const endHour = Math.min(parseHour(effectiveHours?.end, DISPLAY_END_HOUR), DISPLAY_END_HOUR);
 
@@ -227,7 +260,8 @@ const ResourceAvailabilityCalendar = ({
     return hourRows.flatMap((hour) =>
       weekDays.map((day) => {
         const dayName = DAY_NAMES[day.getDay()];
-        const isOpenDay = effectiveDays.length === 0 || effectiveDays.includes(dayName);
+        const isOpenDay =
+          normalizedEffectiveDays.length === 0 || normalizedEffectiveDays.includes(dayName);
         const slotStart = getSlotStart(day, hour);
         const slotEnd = getSlotEnd(day, hour);
         const isPastSlot = slotEnd <= now;
@@ -256,7 +290,7 @@ const ResourceAvailabilityCalendar = ({
         };
       })
     );
-  }, [bookings, effectiveDays, hourRows, weekDays]);
+  }, [bookings, hourRows, normalizedEffectiveDays, weekDays]);
 
   const legend = [
     { key: 'available', label: 'Available', tone: 'bg-emerald-500' },
@@ -338,6 +372,10 @@ const ResourceAvailabilityCalendar = ({
             <div>
               <p className="font-semibold text-slate-900">Choose a free slot, then continue to booking</p>
               <p className="mt-1 text-slate-600">The calendar shows live occupancy from {formatHourLabel(startHour)} to {formatHourLabel(endHour)}.</p>
+              <p className="mt-1 text-slate-500">
+                Operating days:{' '}
+                {normalizedEffectiveDays.length > 0 ? normalizedEffectiveDays.join(', ') : 'All days'}.
+              </p>
               <p className="mt-1 text-slate-500">Pending and booked slots mirror the same overlap rules used by booking validation.</p>
             </div>
             <div className="inline-flex items-center gap-2 px-3 py-2 font-medium text-blue-700 rounded-full bg-blue-50">

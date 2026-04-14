@@ -12,13 +12,21 @@ const TABS = [
 ];
 
 const statusStyles = {
-  pending: 'bg-amber-100 text-amber-900',
+  pending: 'bg-amber-100 text-amber-900',``
   approved: 'bg-green-100 text-green-900',
   rejected: 'bg-red-100 text-red-900',
   completed: 'bg-blue-100 text-blue-900',
   no_show: 'bg-orange-100 text-orange-900',
   cancelled: 'bg-gray-100 text-gray-800',
 };
+
+const normalizeStatus = (value) =>
+  String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '_');
+
+const isPopulatedObject = (value) => Boolean(value && typeof value === 'object');
 
 const formatRange = (start, end) => {
   const s = new Date(start);
@@ -131,8 +139,9 @@ const BookingApprovals = () => {
     () =>
       allBookings.reduce(
         (accumulator, booking) => {
-          if (accumulator[booking.status] !== undefined) {
-            accumulator[booking.status] += 1;
+          const normalizedStatus = normalizeStatus(booking.status);
+          if (accumulator[normalizedStatus] !== undefined) {
+            accumulator[normalizedStatus] += 1;
           }
           accumulator.all += 1;
           return accumulator;
@@ -147,16 +156,16 @@ const BookingApprovals = () => {
       return allBookings;
     }
 
-    return allBookings.filter((booking) => booking.status === tab);
+    return allBookings.filter((booking) => normalizeStatus(booking.status) === tab);
   }, [allBookings, tab]);
 
   const userLabel = (booking) =>
-    typeof booking.userId === 'object'
+    isPopulatedObject(booking.userId)
       ? `${booking.userId.name || 'User'}${booking.userId.email ? ` (${booking.userId.email})` : ''}`
-      : 'User';
+      : 'Archived User';
 
   const resourceLabel = (booking) =>
-    typeof booking.resourceId === 'object' ? booking.resourceId.name : 'Resource';
+    isPopulatedObject(booking.resourceId) ? booking.resourceId.name : 'Archived Resource';
 
   const onApprove = async (id) => {
     const booking = visibleBookings.find((item) => item._id === id);
@@ -213,10 +222,10 @@ const BookingApprovals = () => {
     ];
 
     const rows = visibleBookings.map((booking) => {
-      const userName = typeof booking.userId === 'object' ? booking.userId?.name || '' : '';
-      const userEmail = typeof booking.userId === 'object' ? booking.userId?.email || '' : '';
-      const resourceName = typeof booking.resourceId === 'object' ? booking.resourceId?.name || '' : '';
-      const location = typeof booking.resourceId === 'object' ? booking.resourceId?.location || '' : '';
+      const userName = isPopulatedObject(booking.userId) ? booking.userId?.name || '' : '';
+      const userEmail = isPopulatedObject(booking.userId) ? booking.userId?.email || '' : '';
+      const resourceName = isPopulatedObject(booking.resourceId) ? booking.resourceId?.name || 'Archived Resource' : 'Archived Resource';
+      const location = isPopulatedObject(booking.resourceId) ? booking.resourceId?.location || '' : '';
 
       return [
         booking._id,
@@ -349,89 +358,93 @@ const BookingApprovals = () => {
               </p>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-base">
+            <div className="overflow-hidden">
+              <table className="w-full text-sm table-fixed lg:text-base">
+                <colgroup>
+                  <col className="w-[24%]" />
+                  <col className="w-[20%]" />
+                  <col className="w-[18%]" />
+                  <col className="w-[18%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[10%]" />
+                </colgroup>
                 <thead>
                   <tr className="text-left text-gray-700 border-b bg-gray-50">
-                    <th className="px-6 py-4 font-bold">User</th>
-                    <th className="px-6 py-4 font-bold">Resource</th>
-                    <th className="px-6 py-4 font-bold">When</th>
-                    <th className="px-6 py-4 font-bold">Purpose</th>
-                    <th className="px-6 py-4 font-bold">Attendees</th>
-                    <th className="px-6 py-4 font-bold">Status</th>
-                    <th className="px-6 py-4 font-bold">Decision Info</th>
-                    <th className="px-6 py-4 font-bold">Actions</th>
+                    <th className="px-4 py-3 font-bold">User</th>
+                    <th className="px-4 py-3 font-bold">Resource</th>
+                    <th className="px-4 py-3 font-bold">When</th>
+                    <th className="px-4 py-3 font-bold">Purpose</th>
+                    <th className="px-4 py-3 font-bold">Status</th>
+                    <th className="px-4 py-3 font-bold text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {visibleBookings.map((booking) => (
-                    <tr key={booking._id} className="border-b last:border-0 align-top">
-                      <td className="px-6 py-5">
-                        <div className="font-semibold text-gray-900">{userLabel(booking)}</div>
+                    <tr key={booking._id} className="align-top border-b last:border-0">
+                      <td className="px-4 py-4">
+                        <div className="font-semibold leading-snug text-gray-900 break-words">{userLabel(booking)}</div>
                       </td>
-                      <td className="px-6 py-5">
-                        <div className="font-semibold text-gray-900">{resourceLabel(booking)}</div>
-                        {typeof booking.resourceId === 'object' && booking.resourceId?.location && (
-                          <p className="mt-1 text-sm text-gray-500">{booking.resourceId.location}</p>
+                      <td className="px-4 py-4">
+                        <div className="font-semibold leading-snug text-gray-900 break-words">{resourceLabel(booking)}</div>
+                        {isPopulatedObject(booking.resourceId) && booking.resourceId?.location && (
+                          <p className="mt-1 text-sm leading-snug text-gray-500 break-words">{booking.resourceId.location}</p>
                         )}
                       </td>
-                      <td className="px-6 py-5 whitespace-nowrap text-gray-700">
+                      <td className="px-4 py-4 text-gray-700">
                         {formatRange(booking.startTime, booking.endTime)}
                       </td>
-                      <td className="px-6 py-5 max-w-sm text-gray-700">
-                        {booking.purpose}
+                      <td className="px-4 py-4 text-gray-700">
+                        <p className="leading-snug break-words">{booking.purpose}</p>
+                        <p className="mt-1 text-sm font-semibold text-gray-800">
+                          Attendees: {booking.expectedAttendees}
+                        </p>
                       </td>
-                      <td className="px-6 py-5 font-semibold text-gray-900">
-                        {booking.expectedAttendees}
-                      </td>
-                      <td className="px-6 py-5">
+                      <td className="px-4 py-4">
                         <span
-                          className={`inline-flex rounded-full px-4 py-2 text-sm font-bold capitalize ${
-                            statusStyles[booking.status] || 'bg-gray-100 text-gray-800'
+                          className={`inline-flex rounded-full px-3 py-1.5 text-sm font-bold capitalize ${
+                            statusStyles[normalizeStatus(booking.status)] || 'bg-gray-100 text-gray-800'
                           }`}
                         >
-                          {booking.status.replace('_', ' ')}
+                          {normalizeStatus(booking.status).replace('_', ' ')}
                         </span>
-                      </td>
-                      <td className="px-6 py-5 text-sm text-gray-600">
-                        {booking.status === 'approved' && (
-                          <div>
+                        {normalizeStatus(booking.status) === 'approved' && (
+                          <div className="mt-2 text-sm text-gray-600">
                             <p className="font-semibold text-green-700">Approved</p>
-                            <p className="mt-1">{formatDecisionTime(booking)}</p>
+                            <p className="mt-0.5">{formatDecisionTime(booking)}</p>
                           </div>
                         )}
-                        {booking.status === 'rejected' && (
-                          <div>
+                        {normalizeStatus(booking.status) === 'rejected' && (
+                          <div className="mt-2 text-sm text-gray-600">
                             <p className="font-semibold text-red-700">Rejected</p>
-                            <p className="mt-1">{formatDecisionTime(booking)}</p>
+                            <p className="mt-0.5">{formatDecisionTime(booking)}</p>
                             {booking.rejectionReason && (
-                              <p className="mt-2 text-gray-500">Reason: {booking.rejectionReason}</p>
+                              <p className="mt-1 text-gray-500 break-words">Reason: {booking.rejectionReason}</p>
                             )}
                           </div>
                         )}
-                        {booking.status === 'pending' && hasApprovalWindowPassed(booking) && (
-                          <div>
+                        {normalizeStatus(booking.status) === 'pending' && hasApprovalWindowPassed(booking) && (
+                          <div className="mt-2 text-sm text-gray-600">
                             <p className="font-semibold text-amber-700">Approval window passed</p>
-                            <p className="mt-1 text-gray-500">
-                              This request is already beyond the 15-minute check-in grace period.
+                            <p className="mt-0.5 text-gray-500">
+                              Beyond check-in grace period.
                             </p>
                           </div>
                         )}
-                        {!['approved', 'rejected', 'pending'].includes(booking.status) && (
-                          <span className="text-gray-400">Pending decision</span>
+                        {!['approved', 'rejected', 'pending'].includes(normalizeStatus(booking.status)) && (
+                          <span className="block mt-2 text-sm text-gray-400">Pending decision</span>
                         )}
-                        {booking.status === 'pending' && !hasApprovalWindowPassed(booking) && (
-                          <span className="text-gray-400">Pending decision</span>
+                        {normalizeStatus(booking.status) === 'pending' && !hasApprovalWindowPassed(booking) && (
+                          <span className="block mt-2 text-sm text-gray-400">Pending decision</span>
                         )}
                       </td>
-                      <td className="px-6 py-5">
-                        {booking.status === 'pending' ? (
-                          <div className="flex flex-wrap gap-3">
+                      <td className="px-4 py-4">
+                        {normalizeStatus(booking.status) === 'pending' ? (
+                          <div className="flex flex-col items-stretch gap-2">
                             <button
                               type="button"
                               disabled={busyId === booking._id || hasApprovalWindowPassed(booking)}
                               onClick={() => onApprove(booking._id)}
-                              className="inline-flex items-center justify-center px-5 py-3 text-base font-bold text-white transition-colors duration-200 bg-green-600 rounded-xl shadow-sm min-w-[128px] hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-gray-400"
+                              className="inline-flex items-center justify-center px-3 py-2 text-sm font-bold text-white transition-colors duration-200 bg-green-600 rounded-lg shadow-sm hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-gray-400"
                             >
                               {hasApprovalWindowPassed(booking) ? 'Approval expired' : 'Approve'}
                             </button>
@@ -439,7 +452,7 @@ const BookingApprovals = () => {
                               type="button"
                               disabled={busyId === booking._id}
                               onClick={() => setRejectId(booking._id)}
-                              className="inline-flex items-center justify-center px-5 py-3 text-base font-bold text-white transition-colors duration-200 bg-red-600 rounded-xl shadow-sm min-w-[128px] hover:bg-red-700 disabled:bg-gray-400"
+                              className="inline-flex items-center justify-center px-3 py-2 text-sm font-bold text-white transition-colors duration-200 bg-red-600 rounded-lg shadow-sm hover:bg-red-700 disabled:bg-gray-400"
                             >
                               Reject
                             </button>

@@ -6,7 +6,6 @@ import NotificationBell from "./NotificationBell";
 
 const Navbar = () => {
   const [isResourcesOpen, setIsResourcesOpen] = useState(false);
-  const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { user, logout } = useAuth();
   const isAdmin = String(user?.role || "").toLowerCase() === "admin";
@@ -17,7 +16,6 @@ const Navbar = () => {
   const location = useLocation();
   const resourceDropdownRef = useRef(null);
   const resourcesTimeoutRef = useRef(null);
-  const adminTimeoutRef = useRef(null);
 
   const handleLogout = () => {
     logout();
@@ -64,19 +62,6 @@ const Navbar = () => {
     }, 150);
   };
 
-  const openAdminMenu = () => {
-    if (adminTimeoutRef.current) {
-      clearTimeout(adminTimeoutRef.current);
-    }
-    setIsAdminMenuOpen(true);
-  };
-
-  const closeAdminMenu = () => {
-    adminTimeoutRef.current = setTimeout(() => {
-      setIsAdminMenuOpen(false);
-    }, 150);
-  };
-
   const resourceTypes = [
     { name: "Classrooms", icon: "📚", path: "/resources?category=classroom" },
     { name: "Labs", icon: "🔬", path: "/resources?category=lab" },
@@ -97,15 +82,6 @@ const Navbar = () => {
       icon: "📖",
       path: "/resources?category=library_room",
     },
-  ];
-
-  const adminSections = [
-    { name: "Dashboard", path: "/admin/dashboard" },
-    { name: "Bookings", path: "/admin/approvals" },
-    { name: "Resources", path: "/admin/resources" },
-    { name: "Users", path: "/admin/users" },
-    { name: "Analytics", path: "/admin/analytics" },
-    { name: "No-Show Management", path: "/admin/no-shows" },
   ];
 
   return (
@@ -233,6 +209,20 @@ const Navbar = () => {
                 >
                   Dashboard
                 </Link>
+                {isAdmin && (
+                  <>
+                    <Link
+                      to="/admin/approvals"
+                      className={`px-4 py-2 font-medium transition duration-200 rounded-lg hover:text-blue-600 hover:bg-blue-50 ${
+                        location.pathname === '/admin/approvals'
+                          ? 'text-blue-600 bg-blue-50'
+                          : 'text-gray-700'
+                      }`}
+                    >
+                      Bookings
+                    </Link>
+                  </>
+                )}
                 {!isAdmin && (
                   <>
                     <Link
@@ -245,64 +235,7 @@ const Navbar = () => {
                     >
                       My Bookings
                     </Link>
-                    <Link
-                      to="/notifications"
-                      className={`px-4 py-2 font-medium transition duration-200 rounded-lg hover:text-blue-600 hover:bg-blue-50 ${
-                        location.pathname === "/notifications"
-                          ? "text-blue-600 bg-blue-50"
-                          : "text-gray-700"
-                      }`}
-                    >
-                      Notifications
-                    </Link>
                   </>
-                )}
-                {isAdmin && (
-                  <div
-                    className="relative"
-                    onMouseEnter={openAdminMenu}
-                    onMouseLeave={closeAdminMenu}
-                  >
-                    <button className={`flex items-center px-4 py-2 space-x-1 font-medium transition duration-200 rounded-lg hover:text-blue-600 hover:bg-blue-50 ${
-                      location.pathname.startsWith('/admin') ? 'text-blue-600 bg-blue-50' : 'text-gray-700'
-                    }`}>
-                      <span>Admin Sections</span>
-                      <svg
-                        className={`w-4 h-4 transition-transform duration-200 ${isAdminMenuOpen ? "rotate-180" : ""}`}
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M19 9l-7 7-7-7"
-                        />
-                      </svg>
-                    </button>
-
-                    {isAdminMenuOpen && (
-                      <div
-                        className="absolute left-0 z-30 w-64 py-2 mt-2 bg-white border border-gray-100 shadow-2xl rounded-xl"
-                        onMouseEnter={openAdminMenu}
-                        onMouseLeave={closeAdminMenu}
-                      >
-                        {adminSections.map((section) => (
-                          <Link
-                            key={section.path}
-                            to={section.path}
-                            onClick={() => setIsAdminMenuOpen(false)}
-                            className={`block px-4 py-2.5 text-sm font-medium transition duration-200 hover:bg-blue-50 ${
-                              location.pathname === section.path ? 'text-blue-600' : 'text-gray-700'
-                            }`}
-                          >
-                            {section.name}
-                          </Link>
-                        ))}
-                      </div>
-                    )}
-                  </div>
                 )}
                 {isStaff && (
                   <Link
@@ -488,31 +421,18 @@ const Navbar = () => {
             >
               My Bookings
             </Link>
-            <Link
-              to="/notifications"
-              className="block px-4 py-2 text-gray-700 rounded-lg hover:bg-blue-50"
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              Notifications
-            </Link>
           </>
         )}
         {isAdmin && (
-          <div className="px-4 py-2">
-            <p className="mb-2 text-xs font-semibold tracking-[0.18em] uppercase text-blue-600">Admin Sections</p>
-            <div className="space-y-1">
-              {adminSections.map((section) => (
-                <Link
-                  key={section.path}
-                  to={section.path}
-                  className="block px-3 py-2 text-sm text-gray-700 rounded-lg hover:bg-blue-50"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  {section.name}
-                </Link>
-              ))}
-            </div>
-          </div>
+          <>
+            <Link
+              to="/admin/approvals"
+              className="block px-4 py-2 text-gray-700 rounded-lg hover:bg-blue-50"
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              Bookings
+            </Link>
+          </>
         )}
         {isStaff && (
           <div className="px-4 py-2">
@@ -550,18 +470,6 @@ const Navbar = () => {
               </>
             ) : (
               <div className="px-4 mt-2">
-                {/* Added: Notifications link for mobile menu */}
-                <Link
-                  to="/notifications"
-                  className="flex items-center justify-between px-4 py-2 mb-2 text-gray-700 rounded-lg hover:bg-blue-50"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  <span className="flex items-center gap-2">
-                    <span>🔔</span>
-                    <span>Notifications</span>
-                  </span>
-                </Link>
-
                 <div className="flex items-center p-2 mb-3 space-x-2 rounded-lg bg-blue-50">
                   <img
                     src={roleAvatar}

@@ -333,12 +333,12 @@ const AdminDashboard = () => {
         </div>
 
         <div className="grid grid-cols-1 gap-3 mb-8 sm:grid-cols-2">
-          <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
+          <div className="px-4 py-3 border border-blue-200 rounded-xl bg-blue-50">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-600">Today</p>
             <p className="mt-1 text-2xl font-black text-blue-900">{formatCompactNumber(todayBookings)}</p>
             <p className="text-xs text-blue-700">Bookings started today</p>
           </div>
-          <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3">
+          <div className="px-4 py-3 border border-indigo-200 rounded-xl bg-indigo-50">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-600">This Week</p>
             <p className="mt-1 text-2xl font-black text-indigo-900">{formatCompactNumber(weekBookings)}</p>
             <p className="text-xs text-indigo-700">Bookings started since Monday</p>

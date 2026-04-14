@@ -11,6 +11,10 @@ export const getRelatedBookingId = (notification) => {
 export const getNotificationTarget = (notification) => {
   const bookingId = getRelatedBookingId(notification);
 
+  if (notification?.type === 'booking_request') {
+    return '/admin/approvals';
+  }
+
   if (!bookingId) {
     return '/notifications';
   }
@@ -23,5 +27,5 @@ export const getNotificationTarget = (notification) => {
     return '/booking-history';
   }
 
-  return '/my-bookings';
+  return '/notifications';
 };

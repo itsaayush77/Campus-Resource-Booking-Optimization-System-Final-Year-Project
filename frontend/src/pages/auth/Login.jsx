@@ -32,10 +32,13 @@ const Login = () => {
       if (data.success) {
         login(data.user, data.token);
         toast.success('Login successful!');
+        const role = String(data.user?.role || '').toLowerCase();
         const destination =
-          String(data.user?.role || '').toLowerCase() === 'admin'
+          role === 'admin'
             ? '/admin'
-            : '/dashboard';
+            : role === 'staff'
+              ? '/staff/dashboard'
+              : '/dashboard';
         navigate(destination);
       } else {
         toast.error(data.message || 'Login failed');

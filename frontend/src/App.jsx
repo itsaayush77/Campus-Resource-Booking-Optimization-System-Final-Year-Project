@@ -47,10 +47,17 @@ import { useAuth } from "./context/AuthContext";
 
 function App() {
   const { user, loading } = useAuth();
+  const normalizedRole = String(user?.role || "").toLowerCase();
+  const homePath =
+    normalizedRole === "admin"
+      ? "/admin/dashboard"
+      : normalizedRole === "staff"
+        ? "/staff/dashboard"
+        : "/dashboard";
   const rootElement = loading
     ? null
     : user
-      ? <Navigate to={String(user.role || "").toLowerCase() === "admin" ? "/admin/dashboard" : "/dashboard"} replace />
+      ? <Navigate to={homePath} replace />
       : <Home />;
 
   return (
@@ -71,7 +78,13 @@ function App() {
             path="/dashboard"
             element={
               <ProtectedRoute>
-                <Dashboard />
+                {normalizedRole === 'admin' ? (
+                  <Navigate to="/admin/dashboard" replace />
+                ) : normalizedRole === 'staff' ? (
+                  <Navigate to="/staff/dashboard" replace />
+                ) : (
+                  <Dashboard />
+                )}
               </ProtectedRoute>
             }
           />
@@ -135,7 +148,11 @@ function App() {
             path="/my-bookings"
             element={
               <ProtectedRoute>
-                <MyBookings />
+                {normalizedRole === 'admin' ? (
+                  <Navigate to="/admin/approvals" replace />
+                ) : (
+                  <MyBookings />
+                )}
               </ProtectedRoute>
             }
           />
@@ -143,7 +160,11 @@ function App() {
             path="/booking-history"
             element={
               <ProtectedRoute>
-                <BookingHistory />
+                {normalizedRole === 'admin' ? (
+                  <Navigate to="/admin/approvals" replace />
+                ) : (
+                  <BookingHistory />
+                )}
               </ProtectedRoute>
             }
           />
