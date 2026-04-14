@@ -6,6 +6,7 @@ import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/AdminRoute";
+import StaffRoute from "./components/StaffRoute";
 import ScrollToTop from "./components/ScrollToTop";
 
 // Pages - Public
@@ -42,6 +43,7 @@ import BookingApprovals from "./admin/BookingApprovals";
 import NoShowManagement from "./admin/NoShowManagement";
 import Analytics from "./admin/Analytics";
 import UserManagement from "./admin/UserManagement";
+import StaffDashboard from "./staff/StaffDashboard";
 import { useAuth } from "./context/AuthContext";
 
 
@@ -240,6 +242,40 @@ function App() {
               <AdminRoute>
                 <UserManagement />
               </AdminRoute>
+            }
+          />
+
+          {/* Staff Routes */}
+          <Route
+            path="/staff"
+            element={
+              <StaffRoute>
+                <Navigate to="/staff/dashboard" replace />
+              </StaffRoute>
+            }
+          />
+          <Route
+            path="/staff/dashboard"
+            element={
+              <StaffRoute>
+                <StaffDashboard />
+              </StaffRoute>
+            }
+          />
+          <Route
+            path="/staff/review"
+            element={
+              <StaffRoute>
+                <StaffDashboard />
+              </StaffRoute>
+            }
+          />
+          <Route
+            path="/staff/approvals"
+            element={
+              <StaffRoute>
+                <Navigate to="/staff/review" replace />
+              </StaffRoute>
             }
           />
 

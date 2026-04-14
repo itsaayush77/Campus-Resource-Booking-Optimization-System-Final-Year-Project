@@ -12,7 +12,7 @@ const TABS = [
 ];
 
 const statusStyles = {
-  pending: 'bg-amber-100 text-amber-900',``
+  pending: 'bg-amber-100 text-amber-900',
   approved: 'bg-green-100 text-green-900',
   rejected: 'bg-red-100 text-red-900',
   completed: 'bg-blue-100 text-blue-900',
@@ -54,6 +54,30 @@ const formatDecisionTime = (booking) => {
     hour: '2-digit',
     minute: '2-digit',
   });
+};
+
+const formatReviewTime = (value) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Not recorded';
+  return date.toLocaleString([], {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
+const recommendationLabel = (value) => {
+  if (value === 'recommend_approve') return 'Recommend Approve';
+  if (value === 'recommend_reject') return 'Recommend Reject';
+  return 'No Recommendation';
+};
+
+const recommendationStyle = (value) => {
+  if (value === 'recommend_approve') return 'bg-green-100 text-green-900';
+  if (value === 'recommend_reject') return 'bg-red-100 text-red-900';
+  return 'bg-gray-100 text-gray-800';
 };
 
 const hasApprovalWindowPassed = (booking) => {
@@ -218,7 +242,11 @@ const BookingApprovals = () => {
       'Purpose',
       'Expected Attendees',
       'Approved At',
-      'Rejection Reason'
+      'Rejection Reason',
+      'Staff Recommendation',
+      'Staff Comment',
+      'Reviewed By',
+      'Reviewed At'
     ];
 
     const rows = visibleBookings.map((booking) => {
@@ -226,6 +254,7 @@ const BookingApprovals = () => {
       const userEmail = isPopulatedObject(booking.userId) ? booking.userId?.email || '' : '';
       const resourceName = isPopulatedObject(booking.resourceId) ? booking.resourceId?.name || 'Archived Resource' : 'Archived Resource';
       const location = isPopulatedObject(booking.resourceId) ? booking.resourceId?.location || '' : '';
+      const reviewedBy = isPopulatedObject(booking.reviewedBy) ? booking.reviewedBy?.name || '' : '';
 
       return [
         booking._id,
@@ -239,7 +268,11 @@ const BookingApprovals = () => {
         booking.purpose,
         booking.expectedAttendees,
         booking.approvedAt || '',
-        booking.rejectionReason || ''
+        booking.rejectionReason || '',
+        recommendationLabel(booking.staffRecommendation),
+        booking.staffComment || '',
+        reviewedBy,
+        booking.reviewedAt || ''
       ];
     });
 
@@ -436,6 +469,25 @@ const BookingApprovals = () => {
                         {normalizeStatus(booking.status) === 'pending' && !hasApprovalWindowPassed(booking) && (
                           <span className="block mt-2 text-sm text-gray-400">Pending decision</span>
                         )}
+                        {(booking.staffRecommendation && booking.staffRecommendation !== 'no_recommendation') || booking.staffComment ? (
+                          <div className="p-2 mt-3 border border-blue-100 rounded-lg bg-blue-50">
+                            <p className="text-xs font-semibold tracking-[0.1em] uppercase text-blue-700">Staff Review</p>
+                            <span className={`mt-1 inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${recommendationStyle(booking.staffRecommendation)}`}>
+                              {recommendationLabel(booking.staffRecommendation)}
+                            </span>
+                            {booking.staffComment && (
+                              <p className="mt-1 text-xs leading-snug text-blue-900 break-words">
+                                {booking.staffComment}
+                              </p>
+                            )}
+                            {booking.reviewedAt && (
+                              <p className="mt-1 text-xs text-blue-700">
+                                Reviewed {formatReviewTime(booking.reviewedAt)}
+                                {isPopulatedObject(booking.reviewedBy) && booking.reviewedBy?.name ? ` by ${booking.reviewedBy.name}` : ''}
+                              </p>
+                            )}
+                          </div>
+                        ) : null}
                       </td>
                       <td className="px-4 py-4">
                         {normalizeStatus(booking.status) === 'pending' ? (

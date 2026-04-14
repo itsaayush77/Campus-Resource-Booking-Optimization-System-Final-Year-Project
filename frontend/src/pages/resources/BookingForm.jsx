@@ -299,10 +299,6 @@ const BookingForm = () => {
           </div>
 
           <form onSubmit={handleSubmit} className="p-8 space-y-6">
-            <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
-              Request flow: <strong>Pending</strong> → Admin <strong>Approve/Reject</strong> → QR issued on approval →
-              <strong> Check-in/Check-out</strong> → <strong>Completed / No-show</strong>.
-            </div>
 
             {submissionHint && (
               <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">

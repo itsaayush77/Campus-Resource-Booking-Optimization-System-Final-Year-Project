@@ -67,6 +67,25 @@ const bookingSchema = new mongoose.Schema({
     trim: true,
     default: null
   },
+  staffRecommendation: {
+    type: String,
+    enum: ['no_recommendation', 'recommend_approve', 'recommend_reject'],
+    default: 'no_recommendation'
+  },
+  staffComment: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  reviewedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  reviewedAt: {
+    type: Date,
+    default: null
+  },
   cancellationReason: {
     type: String,
     trim: true

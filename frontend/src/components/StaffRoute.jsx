@@ -1,10 +1,13 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import Loading from './Loading';
 
 const StaffRoute = ({ children }) => {
-  const { user, isLoading } = useAuth();
+  const { user, loading } = useAuth();
 
-  if (isLoading) return <div>Loading...</div>;
+  if (loading) {
+    return <Loading />;
+  }
 
   if (!user) {
     return <Navigate to="/login" replace />;

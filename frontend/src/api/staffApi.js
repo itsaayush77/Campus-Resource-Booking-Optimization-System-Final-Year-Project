@@ -1,23 +1,29 @@
-import axios from './axios';
+import api from './api';
 
-const API_URL = '/api/staff';
+const API_URL = '/staff';
 
 const staffApi = {
   // Get pending bookings (read-only view for staff)
   getStaffPendingBookings: async () => {
-    const response = await axios.get(`${API_URL}/bookings/pending`);
+    const response = await api.get(`${API_URL}/bookings/pending`);
+    return response;
+  },
+
+  // Save a staff recommendation note for admin review
+  submitBookingReview: async (bookingId, payload) => {
+    const response = await api.patch(`${API_URL}/bookings/${bookingId}/review`, payload);
     return response;
   },
 
   // Get analytics for system overview
   getStaffAnalytics: async () => {
-    const response = await axios.get(`${API_URL}/analytics`);
+    const response = await api.get(`${API_URL}/analytics`);
     return response;
   },
 
   // Get resources assigned to staff
   getStaffResources: async () => {
-    const response = await axios.get(`${API_URL}/resources`);
+    const response = await api.get(`${API_URL}/resources`);
     return response;
   },
 };

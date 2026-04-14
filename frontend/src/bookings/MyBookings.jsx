@@ -356,7 +356,7 @@ const MyBookings = () => {
                   )}
                   {isCheckInAvailable(b) && (
                     <Link
-                      to="/scan-qr"
+                      to={`/qr-checkin/${b._id}`}
                       className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700"
                     >
                       <LuCamera className="w-4 h-4" />

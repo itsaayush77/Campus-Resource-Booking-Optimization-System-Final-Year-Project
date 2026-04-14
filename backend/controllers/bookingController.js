@@ -373,6 +373,7 @@ exports.getAdminBookings = async (req, res) => {
     const bookings = await Booking.find(query)
       .populate('userId', 'name email department')
       .populate('resourceId', 'name location capacity')
+      .populate('reviewedBy', 'name email role')
       .sort({ createdAt: -1 });
 
     return res.status(200).json({

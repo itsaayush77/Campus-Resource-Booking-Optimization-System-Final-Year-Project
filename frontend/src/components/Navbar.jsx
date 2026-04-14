@@ -239,14 +239,14 @@ const Navbar = () => {
                 )}
                 {isStaff && (
                   <Link
-                    to="/staff/dashboard"
+                    to="/staff/review"
                     className={`px-4 py-2 font-medium transition duration-200 rounded-lg hover:text-blue-600 hover:bg-blue-50 ${
-                      location.pathname === '/staff/dashboard'
+                      location.pathname === '/staff/dashboard' || location.pathname === '/staff/review' || location.pathname === '/staff/approvals'
                         ? 'text-blue-600 bg-blue-50'
                         : 'text-gray-700'
                     }`}
                   >
-                    Approvals
+                    Review Queue
                   </Link>
                 )}
               </>
@@ -436,14 +436,14 @@ const Navbar = () => {
         )}
         {isStaff && (
           <div className="px-4 py-2">
-            <p className="mb-2 text-xs font-semibold tracking-[0.18em] uppercase text-blue-600">Staff Options</p>
+            <p className="mb-2 text-xs font-semibold tracking-[0.18em] uppercase text-blue-600">Staff Tools</p>
             <div className="space-y-1">
               <Link
-                to="/staff/dashboard"
+                to="/staff/review"
                 className="block px-3 py-2 text-sm text-gray-700 rounded-lg hover:bg-blue-50"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
-                Booking Approvals
+                Booking Review
               </Link>
             </div>
           </div>

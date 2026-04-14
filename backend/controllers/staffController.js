@@ -1,37 +1,15 @@
-const crypto = require('crypto');
 const mongoose = require('mongoose');
-const QRCode = require('qrcode');
 const Booking = require('../models/Bookings');
-const Resource = require('../models/Resource');
-const { createNotification } = require('../services/notificationService');
 
-const getNoShowThreshold = (date) => new Date(new Date(date).getTime() + 15 * 60 * 1000);
-
-const hasConflict = async (resourceId, startTime, endTime, ignoreBookingId = null) => {
-  const query = {
-    resourceId,
-    status: { $in: ['pending', 'approved'] },
-    startTime: { $lt: endTime },
-    endTime: { $gt: startTime }
-  };
-
-  if (ignoreBookingId) {
-    query._id = { $ne: ignoreBookingId };
-  }
-
-  const existing = await Booking.findOne(query).lean();
-  return Boolean(existing);
-};
-
-// @desc    Get all pending bookings (staff can approve any)
+// @desc    Get all pending bookings for staff review queue
 // @route   GET /api/staff/bookings/pending
 // @access  Private/Staff
 exports.getStaffPendingBookings = async (req, res) => {
   try {
-    // Staff can see ALL pending bookings (no resource restriction)
     const bookings = await Booking.find({ status: 'pending' })
       .populate('userId', 'name email phoneNumber department')
       .populate('resourceId', 'name location capacity type category')
+      .populate('reviewedBy', 'name email role')
       .sort({ createdAt: -1 });
 
     return res.status(200).json({
@@ -43,6 +21,81 @@ exports.getStaffPendingBookings = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to fetch pending bookings',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Save staff recommendation note for a pending booking
+// @route   PATCH /api/staff/bookings/:id/review
+// @access  Private/Staff
+exports.saveStaffBookingReview = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const recommendation = String(req.body?.recommendation || 'no_recommendation')
+      .trim()
+      .toLowerCase();
+    const comment = String(req.body?.comment || '').trim();
+
+    const allowedRecommendations = ['no_recommendation', 'recommend_approve', 'recommend_reject'];
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid booking ID'
+      });
+    }
+
+    if (!allowedRecommendations.includes(recommendation)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid recommendation value'
+      });
+    }
+
+    if (comment.length > 300) {
+      return res.status(400).json({
+        success: false,
+        message: 'Comment must be 300 characters or less'
+      });
+    }
+
+    const booking = await Booking.findById(id);
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: 'Booking not found'
+      });
+    }
+
+    if (booking.status !== 'pending') {
+      return res.status(400).json({
+        success: false,
+        message: 'Staff review note can only be added to pending bookings'
+      });
+    }
+
+    booking.staffRecommendation = recommendation;
+    booking.staffComment = comment;
+    booking.reviewedBy = req.user._id;
+    booking.reviewedAt = new Date();
+    await booking.save();
+
+    const updatedBooking = await Booking.findById(booking._id)
+      .populate('userId', 'name email phoneNumber department')
+      .populate('resourceId', 'name location capacity type category')
+      .populate('reviewedBy', 'name email role');
+
+    return res.status(200).json({
+      success: true,
+      message: 'Review note saved. Admin remains the final decision-maker.',
+      booking: updatedBooking
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to save staff review note',
       error: error.message
     });
   }
