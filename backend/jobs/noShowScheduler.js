@@ -1,6 +1,7 @@
 const cron = require('node-cron');
 const Booking = require('../models/Bookings');
 const { markBookingAsNoShow } = require('../services/noShowService');
+const { completeExpiredCheckedInBookings } = require('../services/bookingLifecycleService');
 
 let schedulerStarted = false;
 
@@ -11,6 +12,8 @@ const startNoShowScheduler = () => {
 
   cron.schedule('*/5 * * * *', async () => {
     try {
+      await completeExpiredCheckedInBookings();
+
       const threshold = new Date(Date.now() - 15 * 60 * 1000);
       const overdueBookings = await Booking.find({
         status: 'approved',

@@ -5,6 +5,7 @@ const Booking = require('../models/Bookings');
 const Resource = require('../models/Resource');
 const { createNotification } = require('../services/notificationService');
 const { markBookingAsNoShow } = require('../services/noShowService');
+const { completeExpiredCheckedInBookings } = require('../services/bookingLifecycleService');
 
 const ACTIVE_BOOKING_STATUSES = ['pending', 'approved'];
 const isNextFunction = (next) => typeof next === 'function';
@@ -197,6 +198,8 @@ exports.createBooking = async (req, res, next) => {
 // @access  Private 
 exports.getMyBookings = async (req, res) => {
   try {
+    await completeExpiredCheckedInBookings({ userId: req.user._id });
+
     const bookings = await Booking.find({
       userId: req.user._id,
       status: { $nin: ['completed', 'cancelled', 'rejected', 'no_show'] }
@@ -223,6 +226,8 @@ exports.getMyBookings = async (req, res) => {
 // @access  Private
 exports.getMyBookingHistory = async (req, res) => {
   try {
+    await completeExpiredCheckedInBookings({ userId: req.user._id });
+
     const bookings = await Booking.find({
       userId: req.user._id,
       status: { $in: ['completed', 'cancelled', 'rejected', 'no_show'] }
@@ -257,6 +262,8 @@ exports.getBookingById = async (req, res) => {
         message: 'Invalid booking ID'
       });
     }
+
+    await completeExpiredCheckedInBookings({ _id: id });
 
     const booking = await Booking.findById(id)
       .populate('resourceId', 'name location capacity type category description amenities availability isActive')
@@ -366,6 +373,8 @@ exports.cancelBooking = async (req, res) => {
 // @access  Private/Admin
 exports.getAdminBookings = async (req, res) => {
   try {
+    await completeExpiredCheckedInBookings();
+
     const { status } = req.query;
     const query = {};
     if (status) query.status = status;
@@ -583,6 +592,20 @@ exports.checkInBooking = async (req, res) => {
       });
     }
 
+    if (
+      booking.status === 'approved' &&
+      booking.checkInTime &&
+      !booking.checkOutTime &&
+      new Date(booking.endTime) <= new Date()
+    ) {
+      await completeExpiredCheckedInBookings({ _id: booking._id });
+      return res.status(409).json({
+        success: false,
+        message: 'This booking session has already ended and was auto-completed.',
+        errorCode: 'BOOKING_ALREADY_COMPLETED'
+      });
+    }
+
     const isAdmin = req.user.role === 'admin';
     const isOwner = booking.userId.toString() === req.user._id.toString();
     if (!isAdmin && !isOwner) {
@@ -682,6 +705,27 @@ exports.checkOutBooking = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'Booking not found'
+      });
+    }
+
+    if (
+      booking.status === 'approved' &&
+      booking.checkInTime &&
+      !booking.checkOutTime &&
+      new Date(booking.endTime) <= new Date()
+    ) {
+      await completeExpiredCheckedInBookings({ _id: booking._id });
+
+      const completedBooking = await Booking.findById(id)
+        .populate('resourceId', 'name location capacity type category')
+        .populate('userId', 'name email');
+
+      return res.status(200).json({
+        success: true,
+        message: `Session already ended. Recorded usage: ${completedBooking.actualUsageDuration} minutes.`,
+        action: 'checked-out',
+        actualUsageDuration: completedBooking.actualUsageDuration,
+        booking: completedBooking
       });
     }
 

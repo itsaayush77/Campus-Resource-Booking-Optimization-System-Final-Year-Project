@@ -92,6 +92,134 @@ const FILTERS = [
   { key: 'history', label: 'History' },
 ];
 
+const BookingCard = ({
+  booking,
+  onShowQr,
+  onCancel,
+  resourceName,
+  resourceLocation,
+}) => {
+  return (
+    <li className="p-6 bg-white border border-gray-100 shadow-sm rounded-xl">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">
+            {resourceName(booking)}
+          </h2>
+          {resourceLocation(booking) && (
+            <p className="text-sm text-gray-500">{resourceLocation(booking)}</p>
+          )}
+          <p className="mt-2 text-sm text-gray-600">{formatRange(booking.startTime, booking.endTime)}</p>
+          <p className="mt-1 text-sm text-gray-600">
+            <span className="font-medium">Purpose:</span> {booking.purpose}
+          </p>
+          {(booking.approvedAt || booking.checkInTime || booking.checkOutTime) && (
+            <div className="mt-2 space-y-1 text-xs text-gray-500">
+              {booking.approvedAt && <p>Approved at: {formatTimestamp(booking.approvedAt)}</p>}
+              {booking.checkInTime && <p>Checked in at: {formatTimestamp(booking.checkInTime)}</p>}
+              {booking.checkOutTime && <p>Checked out at: {formatTimestamp(booking.checkOutTime)}</p>}
+            </div>
+          )}
+          {booking.rejectionReason && (
+            <p className="mt-2 text-sm font-medium text-red-600">
+              Rejected: {booking.rejectionReason}
+            </p>
+          )}
+          {booking.cancellationReason && (
+            <p className="mt-2 text-sm font-medium text-gray-600">
+              Cancelled: {booking.cancellationReason}
+            </p>
+          )}
+          {isOverduePendingBooking(booking) && (
+            <div className="max-w-2xl p-3 mt-3 border border-amber-200 rounded-xl bg-amber-50">
+              <p className="text-sm font-semibold text-amber-900">
+                Booking window passed while still pending approval
+              </p>
+              <p className="mt-1 text-sm text-amber-800">
+                No-show rules only apply after an admin approves a booking. Because this request
+                was never approved, it will stay pending until the admin approves or rejects it.
+              </p>
+            </div>
+          )}
+        </div>
+        <span
+          className={`px-3 py-1 text-xs font-semibold rounded-full capitalize ${
+            statusStyles[booking.status] || 'bg-gray-100 text-gray-800'
+          }`}
+        >
+          {booking.status}
+        </span>
+      </div>
+      <div className="flex flex-wrap gap-2 mt-4">
+        {booking.status === 'approved' && booking.qrCodeImage && (
+          <button
+            type="button"
+            onClick={() => onShowQr(booking)}
+            className="px-4 py-2 text-sm font-semibold text-blue-700 rounded-lg bg-blue-50 hover:bg-blue-100"
+          >
+            View QR code
+          </button>
+        )}
+        {isCheckInAvailable(booking) && (
+          <Link
+            to={`/qr-checkin/${booking._id}`}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700"
+          >
+            <LuCamera className="w-4 h-4" />
+            Check-In Verification
+          </Link>
+        )}
+        {isCheckOutAvailable(booking) && (
+          <Link
+            to={`/qr-checkin/${booking._id}`}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-orange-600 rounded-lg hover:bg-orange-700"
+          >
+            <LuLogOut className="w-4 h-4" />
+            Check Out
+          </Link>
+        )}
+        {booking.status === 'approved' && booking.checkInTime && !booking.checkOutTime && (
+          <div className="px-3 py-2 text-xs font-semibold text-green-700 rounded-lg bg-green-50">
+            Checked in
+          </div>
+        )}
+        {booking.status === 'completed' && booking.checkInTime && booking.checkOutTime && (
+          <div className="px-3 py-2 text-xs font-semibold rounded-lg text-emerald-700 bg-emerald-50">
+            Used for {booking.actualUsageDuration} min
+          </div>
+        )}
+        {booking.status === 'completed' && !booking.checkInTime && (
+          <div className="px-3 py-2 text-xs font-semibold text-gray-700 bg-gray-100 rounded-lg">
+            Completed without check-in
+          </div>
+        )}
+        {booking.status === 'no_show' && (
+          <div className="px-3 py-2 text-xs font-semibold text-orange-700 rounded-lg bg-orange-50">
+            No-show (not checked in)
+          </div>
+        )}
+        {booking.status === 'approved' && !isCheckInAvailable(booking) && !isCheckOutAvailable(booking) && !booking.checkInTime && (
+          <Link
+            to={`/qr-checkin/${booking._id}`}
+            className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700"
+          >
+            Open QR details
+          </Link>
+        )}
+        {['pending', 'approved'].includes(booking.status) && !booking.checkInTime && (
+          <button
+            type="button"
+            onClick={() => onCancel(booking)}
+            className="px-4 py-2 text-sm font-semibold text-red-700 rounded-lg bg-red-50 hover:bg-red-100"
+          >
+            Cancel
+          </button>
+        )}
+      </div>
+    </li>
+  );
+};
+
 const MyBookings = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -186,6 +314,25 @@ const MyBookings = () => {
     if (filter === 'history') return historyBookings;
     return bookings;
   }, [activeBookings, bookings, filter, historyBookings]);
+
+  const allSections = useMemo(() => {
+    if (filter !== 'all') return [];
+
+    return [
+      {
+        key: 'active',
+        title: 'Active bookings',
+        description: 'Pending and approved bookings that still need attention.',
+        items: activeBookings,
+      },
+      {
+        key: 'history',
+        title: 'History',
+        description: 'Completed, rejected, cancelled, and past booking records.',
+        items: historyBookings,
+      },
+    ].filter((section) => section.items.length > 0);
+  }, [activeBookings, filter, historyBookings]);
 
   const confirmCancel = async () => {
     if (!cancelTarget) return;
@@ -288,6 +435,34 @@ const MyBookings = () => {
               </Link>
             </div>
           </div>
+        ) : filter === 'all' ? (
+          <div className="space-y-8">
+            {allSections.map((section) => (
+              <section key={section.key} className="space-y-4">
+                <div>
+                  <div className="flex items-center gap-3">
+                    <h2 className="text-xl font-semibold text-gray-900">{section.title}</h2>
+                    <span className="px-2.5 py-1 text-xs font-bold text-gray-600 bg-white border border-gray-200 rounded-full">
+                      {section.items.length}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-sm text-gray-500">{section.description}</p>
+                </div>
+                <ul className="space-y-4">
+                  {section.items.map((booking) => (
+                    <BookingCard
+                      key={booking._id}
+                      booking={booking}
+                      onShowQr={setQrBooking}
+                      onCancel={setCancelTarget}
+                      resourceName={resourceName}
+                      resourceLocation={resourceLocation}
+                    />
+                  ))}
+                </ul>
+              </section>
+            ))}
+          </div>
         ) : (
           <ul className="space-y-4">
             {filteredBookings.map((b) => (
@@ -360,7 +535,7 @@ const MyBookings = () => {
                       className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700"
                     >
                       <LuCamera className="w-4 h-4" />
-                      Check In
+                      Check-In Verification
                     </Link>
                   )}
                   {isCheckOutAvailable(b) && (
@@ -397,7 +572,7 @@ const MyBookings = () => {
                       to={`/qr-checkin/${b._id}`}
                       className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700"
                     >
-                      Manual check-in
+                      Open QR details
                     </Link>
                   )}
                   {['pending', 'approved'].includes(b.status) && !b.checkInTime && (
@@ -421,7 +596,7 @@ const MyBookings = () => {
           <div className="w-full max-w-md p-6 bg-white shadow-xl rounded-xl">
             <h3 className="text-lg font-semibold text-gray-900">Cancel booking?</h3>
             <p className="mt-2 text-sm text-gray-600">
-              {resourceName(cancelTarget)} — {formatRange(cancelTarget.startTime, cancelTarget.endTime)}
+              {resourceName(cancelTarget)} - {formatRange(cancelTarget.startTime, cancelTarget.endTime)}
             </p>
             <label className="block mt-4 text-sm font-medium text-gray-700">
               Reason <span className="font-normal text-gray-400">(optional)</span>
@@ -449,7 +624,7 @@ const MyBookings = () => {
                 onClick={confirmCancel}
                 className="px-4 py-2 text-sm font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:bg-gray-400"
               >
-                {cancelling ? 'Cancelling…' : 'Confirm cancel'}
+                {cancelling ? 'Cancelling...' : 'Confirm cancel'}
               </button>
             </div>
           </div>
@@ -467,7 +642,7 @@ const MyBookings = () => {
               className="w-full max-w-[280px] mx-auto mt-4 border border-gray-200 rounded-lg"
             />
             <p className="mt-3 text-xs text-gray-500">
-              Show this at the venue during the check-in window.
+              Show this to an admin at the venue during the check-in window for verification.
             </p>
             <button
               type="button"

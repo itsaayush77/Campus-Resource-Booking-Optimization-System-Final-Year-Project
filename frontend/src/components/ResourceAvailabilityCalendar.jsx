@@ -157,7 +157,8 @@ const ResourceAvailabilityCalendar = ({
   operatingDays = [],
   onTimeSlotClick,
 }) => {
-  const [weekStart, setWeekStart] = useState(() => startOfDay(new Date()));
+  const todayStart = useMemo(() => startOfDay(new Date()), []);
+  const [weekStart, setWeekStart] = useState(() => todayStart);
   const [resourceInfo, setResourceInfo] = useState(null);
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -300,8 +301,13 @@ const ResourceAvailabilityCalendar = ({
     { key: 'closed', label: 'Not Operating', tone: 'bg-slate-500' },
   ];
 
+  const canMoveToPreviousWeek = weekStart > todayStart;
+
   const moveWeek = (direction) => {
-    setWeekStart((current) => addDays(current, direction * WEEK_LENGTH));
+    setWeekStart((current) => {
+      const next = addDays(current, direction * WEEK_LENGTH);
+      return direction < 0 && next < todayStart ? todayStart : next;
+    });
   };
 
   const handleSlotClick = (slot) => {
@@ -339,7 +345,8 @@ const ResourceAvailabilityCalendar = ({
             <button
               type="button"
               onClick={() => moveWeek(-1)}
-              className="inline-flex items-center justify-center w-11 h-11 transition bg-white border border-blue-100 shadow-sm rounded-2xl text-slate-700 hover:border-blue-200 hover:text-blue-700"
+              disabled={!canMoveToPreviousWeek}
+              className="inline-flex items-center justify-center w-11 h-11 transition bg-white border border-blue-100 shadow-sm rounded-2xl text-slate-700 hover:border-blue-200 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-blue-100 disabled:hover:text-slate-700"
             >
               <LuChevronLeft className="w-5 h-5" />
             </button>
