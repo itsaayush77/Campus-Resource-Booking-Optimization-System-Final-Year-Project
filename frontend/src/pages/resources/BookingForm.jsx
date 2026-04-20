@@ -5,6 +5,9 @@ import toast from 'react-hot-toast';
 import { createBooking } from '../../api/bookingApi';
 import { getResourceById } from '../../api/resourceApi';
 import BackButton from '../../components/BackButton';
+import SuspensionBanner from '../../components/SuspensionBanner';
+import { useAuth } from '../../context/AuthContext';
+import { isUserSuspended } from '../../utils/suspension';
 import 'react-datepicker/dist/react-datepicker.css';
 import './BookingForm.css';
 
@@ -52,6 +55,7 @@ const roundUpToInterval = (date, intervalMinutes) => {
 const BookingForm = () => {
   const { resourceId } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const [resource, setResource] = useState(null);
   const [loadingResource, setLoadingResource] = useState(true);
@@ -62,6 +66,7 @@ const BookingForm = () => {
   const [expectedAttendees, setExpectedAttendees] = useState('1');
   const [notes, setNotes] = useState('');
   const [submissionHint, setSubmissionHint] = useState('');
+  const suspended = isUserSuspended(user);
 
   const now = useMemo(() => new Date(), []);
   const roundedNow = useMemo(
@@ -191,6 +196,11 @@ const BookingForm = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    if (suspended) {
+      toast.error('Your account is suspended. Booking is temporarily disabled.');
+      return;
+    }
+
     if (!resource?.isActive) {
       toast.error('This resource cannot be booked.');
       return;
@@ -299,6 +309,7 @@ const BookingForm = () => {
           </div>
 
           <form onSubmit={handleSubmit} className="p-8 space-y-6">
+            <SuspensionBanner user={user} />
 
             {submissionHint && (
               <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
@@ -321,7 +332,7 @@ const BookingForm = () => {
                   maxTime={startMaxTime}
                   dateFormat={DISPLAY_FORMAT}
                   placeholderText="Choose start date and time"
-                  disabled={!resource.isActive}
+                  disabled={!resource.isActive || suspended}
                   className="booking-datepicker-input"
                   wrapperClassName="booking-datepicker-wrapper"
                   calendarClassName="booking-datepicker-calendar"
@@ -347,7 +358,7 @@ const BookingForm = () => {
                   maxTime={endMaxTime}
                   dateFormat={DISPLAY_FORMAT}
                   placeholderText="Choose end date and time"
-                  disabled={!startDate || !resource.isActive}
+                  disabled={!startDate || !resource.isActive || suspended}
                   className="booking-datepicker-input"
                   wrapperClassName="booking-datepicker-wrapper"
                   calendarClassName="booking-datepicker-calendar"
@@ -401,6 +412,7 @@ const BookingForm = () => {
                 value={purpose}
                 onChange={(e) => setPurpose(e.target.value)}
                 placeholder="Describe the class, event, practice, or activity for this booking."
+                disabled={suspended}
                 className="w-full px-4 py-3 text-gray-900 transition-all duration-200 border border-slate-200 rounded-2xl shadow-sm resize-none focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-100"
               />
             </div>
@@ -417,6 +429,7 @@ const BookingForm = () => {
                   required
                   value={expectedAttendees}
                   onChange={(e) => setExpectedAttendees(e.target.value)}
+                  disabled={suspended}
                   className="w-full px-4 py-3 text-gray-900 transition-all duration-200 border border-slate-200 rounded-2xl shadow-sm focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-100"
                 />
               </div>
@@ -430,6 +443,7 @@ const BookingForm = () => {
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Any setup details, equipment needs, or booking notes."
+                  disabled={suspended}
                   className="w-full px-4 py-3 text-gray-900 transition-all duration-200 border border-slate-200 rounded-2xl shadow-sm resize-none focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-100"
                 />
               </div>
@@ -437,10 +451,10 @@ const BookingForm = () => {
 
             <button
               type="submit"
-              disabled={submitting || !resource.isActive}
+              disabled={submitting || !resource.isActive || suspended}
               className="w-full py-3.5 font-semibold text-white transition-all duration-200 rounded-2xl shadow-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 hover:shadow-xl disabled:cursor-not-allowed disabled:from-slate-400 disabled:to-slate-500"
             >
-              {submitting ? 'Submitting...' : 'Submit booking request'}
+              {suspended ? 'Booking temporarily disabled' : submitting ? 'Submitting...' : 'Submit booking request'}
             </button>
           </form>
         </div>

@@ -3,7 +3,10 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { getResourceById } from '../../api/resourceApi';
 import BackButton from '../../components/BackButton';
+import SuspensionBanner from '../../components/SuspensionBanner';
 import ResourceAvailabilityCalendar from '../../components/ResourceAvailabilityCalendar';
+import { useAuth } from '../../context/AuthContext';
+import { isUserSuspended } from '../../utils/suspension';
 
 const CATEGORY_LABELS = {
   classroom: 'Classroom',
@@ -18,8 +21,10 @@ const CATEGORY_LABELS = {
 const ResourceDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [resource, setResource] = useState(null);
   const [loading, setLoading] = useState(true);
+  const suspended = isUserSuspended(user);
 
   useEffect(() => {
     if (!id) return undefined;
@@ -90,6 +95,8 @@ const ResourceDetails = () => {
         <BackButton label="Back to resources" fallback="/resources" />
 
         <div className="p-8 bg-white shadow-xl rounded-2xl animate-fadeIn">
+          <SuspensionBanner user={user} className="mb-6" />
+
           <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
             <div>
               <p className="text-sm font-medium tracking-wide text-blue-600 uppercase">
@@ -169,14 +176,20 @@ const ResourceDetails = () => {
               Browse all
             </Link>
             <Link
-              to={`/book/${resource._id}`}
+              to={suspended ? '#' : `/book/${resource._id}`}
+              onClick={(event) => {
+                if (suspended) {
+                  event.preventDefault();
+                  toast.error('Your account is suspended. Booking is temporarily disabled.');
+                }
+              }}
               className={`px-5 py-2.5 font-semibold text-white rounded-lg shadow-md ${
-                resource.isActive
+                resource.isActive && !suspended
                   ? 'bg-blue-600 hover:bg-blue-700'
                   : 'bg-gray-400 pointer-events-none cursor-not-allowed'
               }`}
             >
-              Book this resource
+              {suspended ? 'Booking suspended' : 'Book this resource'}
             </Link>
           </div>
         </div>

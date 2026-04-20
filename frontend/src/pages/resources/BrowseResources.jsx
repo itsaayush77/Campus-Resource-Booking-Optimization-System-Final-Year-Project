@@ -2,6 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { getAllResources } from '../../api/resourceApi';
+import { useAuth } from '../../context/AuthContext';
+import SuspensionBanner from '../../components/SuspensionBanner';
+import { isUserSuspended } from '../../utils/suspension';
 
 const CATEGORY_META = {
   classroom: {
@@ -42,6 +45,7 @@ const CATEGORY_META = {
 };
 
 const BrowseResources = () => {
+  const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [resources, setResources] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -147,6 +151,7 @@ const BrowseResources = () => {
     selectedCategory !== 'all' ||
     selectedCapacity !== 'all' ||
     selectedAvailability !== 'all';
+  const suspended = isUserSuspended(user);
 
   return (
     <div className="min-h-screen py-12 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
@@ -162,6 +167,8 @@ const BrowseResources = () => {
             Discover and book classrooms, labs, equipment, and more
           </p>
         </div>
+
+        <SuspensionBanner user={user} className="mb-8" />
 
         <div className="mb-12">
           <h2 className="mb-6 text-2xl font-bold text-gray-900">Quick access by category</h2>
@@ -282,7 +289,7 @@ const BrowseResources = () => {
         ) : filteredResources.length > 0 ? (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
             {filteredResources.map((resource) => (
-              <ResourceCard key={resource._id} resource={resource} />
+              <ResourceCard key={resource._id} resource={resource} suspended={suspended} />
             ))}
           </div>
         ) : (
@@ -306,7 +313,7 @@ const BrowseResources = () => {
   );
 };
 
-const ResourceCard = ({ resource }) => {
+const ResourceCard = ({ resource, suspended }) => {
   const amenities = Array.isArray(resource.amenities) ? resource.amenities : [];
 
   return (
@@ -370,7 +377,7 @@ const ResourceCard = ({ resource }) => {
           >
             Details
           </Link>
-          {resource.isActive ? (
+          {resource.isActive && !suspended ? (
             <Link
               to={`/book/${resource._id}`}
               className="flex flex-1 items-center justify-center py-2.5 text-sm font-semibold text-center text-white rounded-lg shadow-md transition-all bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
@@ -379,7 +386,7 @@ const ResourceCard = ({ resource }) => {
             </Link>
           ) : (
             <span className="flex flex-1 items-center justify-center py-2.5 text-sm font-semibold text-center text-gray-400 bg-gray-200 rounded-lg cursor-not-allowed">
-              Not available
+              {suspended ? 'Suspended' : 'Not available'}
             </span>
           )}
         </div>

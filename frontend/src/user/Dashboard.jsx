@@ -5,6 +5,7 @@ import { getAllNotifications } from '../api/notificationApi';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
+import SuspensionBanner from '../components/SuspensionBanner';
 import {
   LuArrowRight as ArrowRight,
   LuBell as Bell,
@@ -286,6 +287,8 @@ const Dashboard = () => {
             {refreshing ? 'Refreshing...' : 'Refresh'}
           </button>
         </div>
+
+        <SuspensionBanner user={user} className="mb-8" />
 
         <div className="grid grid-cols-1 gap-6 mb-8 sm:grid-cols-2 lg:grid-cols-4">
           {stats.map((stat) => {

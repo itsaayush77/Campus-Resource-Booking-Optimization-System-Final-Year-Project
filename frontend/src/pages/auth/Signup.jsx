@@ -4,6 +4,9 @@ import { register as registerApi } from '../../api/authApi';
 import toast from 'react-hot-toast';
 import { LuEye, LuEyeOff } from 'react-icons/lu';
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_REGEX = /^[0-9]{10}$/;
+
 const Signup = () => {
   const [formData, setFormData] = useState({
     name: '',
@@ -30,8 +33,21 @@ const Signup = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    const trimmedEmail = formData.email.trim().toLowerCase();
+    const trimmedPhoneNumber = formData.phoneNumber.trim();
+
     if (formData.password !== formData.confirmPassword) {
       toast.error('Passwords do not match!');
+      return;
+    }
+
+    if (!EMAIL_REGEX.test(trimmedEmail)) {
+      toast.error('Please enter a valid email address.');
+      return;
+    }
+
+    if (trimmedPhoneNumber && !PHONE_REGEX.test(trimmedPhoneNumber)) {
+      toast.error('Phone number must be exactly 10 digits.');
       return;
     }
 
@@ -44,7 +60,11 @@ const Signup = () => {
 
     try {
       const registerData = Object.fromEntries(
-        Object.entries(formData).filter(
+        Object.entries({
+          ...formData,
+          email: trimmedEmail,
+          phoneNumber: trimmedPhoneNumber
+        }).filter(
           ([key, value]) => key !== 'confirmPassword' && value !== ''
         )
       );
@@ -100,6 +120,7 @@ const Signup = () => {
               onChange={handleChange}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               placeholder="you@example.com"
+              autoComplete="email"
             />
           </div>
 
@@ -113,7 +134,10 @@ const Signup = () => {
     value={formData.phoneNumber}
     onChange={handleChange}
     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-    placeholder=""
+    placeholder="98XXXXXXXX"
+    inputMode="numeric"
+    maxLength={10}
+    pattern="[0-9]{10}"
   />
 </div>
 
