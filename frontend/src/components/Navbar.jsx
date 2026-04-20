@@ -241,7 +241,7 @@ const Navbar = () => {
                   <Link
                     to="/staff/review"
                     className={`px-4 py-2 font-medium transition duration-200 rounded-lg hover:text-blue-600 hover:bg-blue-50 ${
-                      location.pathname === '/staff/dashboard' || location.pathname === '/staff/review' || location.pathname === '/staff/approvals'
+                      location.pathname === '/staff/review' || location.pathname === '/staff/approvals'
                         ? 'text-blue-600 bg-blue-50'
                         : 'text-gray-700'
                     }`}

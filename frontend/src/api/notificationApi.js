@@ -35,3 +35,14 @@ export const markAllAsRead = async () => {
     return formatError(error, "Failed to mark all notifications as read");
   }
 };
+
+export const markManyAsRead = async (notificationIds = []) => {
+  try {
+    const response = await api.patch("/notifications/read-many", {
+      notificationIds,
+    });
+    return response.data;
+  } catch (error) {
+    return formatError(error, "Failed to mark notifications as read");
+  }
+};

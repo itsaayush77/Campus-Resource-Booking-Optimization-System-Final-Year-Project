@@ -181,9 +181,9 @@ function App() {
           <Route
             path="/scan-qr"
             element={
-              <ProtectedRoute>
+              <AdminRoute>
                 <ScanQR />
-              </ProtectedRoute>
+              </AdminRoute>
             }
           />
 

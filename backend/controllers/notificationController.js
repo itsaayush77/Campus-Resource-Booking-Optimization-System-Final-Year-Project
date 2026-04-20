@@ -10,7 +10,10 @@ exports.getMyNotifications = async (req, res) => {
       .populate('relatedBooking', 'resourceId startTime endTime status')
       .sort({ createdAt: -1 });
 
-    const unreadCount = notifications.filter((item) => !item.isRead).length;
+    const unreadCount = await Notification.countDocuments({
+      userId: req.user._id,
+      isRead: false,
+    });
 
     return res.status(200).json({
       success: true,
@@ -58,6 +61,7 @@ exports.markNotificationAsRead = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: 'Notification marked as read',
+      unreadCount: await Notification.countDocuments({ userId: req.user._id, isRead: false }),
       notification
     });
   } catch (error) {
@@ -65,6 +69,63 @@ exports.markNotificationAsRead = async (req, res) => {
       success: false,
       message: 'Failed to update notification',
       error: error.message
+    });
+  }
+};
+
+// @desc    Mark multiple notifications as read
+// @route   PATCH /api/notifications/read-many
+// @access  Private
+exports.markManyNotificationsAsRead = async (req, res) => {
+  try {
+    const notificationIds = Array.isArray(req.body?.notificationIds)
+      ? req.body.notificationIds
+      : [];
+
+    if (notificationIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'notificationIds must be a non-empty array'
+      });
+    }
+
+    const validObjectIds = notificationIds
+      .filter((id) => mongoose.Types.ObjectId.isValid(id))
+      .map((id) => new mongoose.Types.ObjectId(id));
+
+    if (validObjectIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No valid notification IDs provided'
+      });
+    }
+
+    const now = new Date();
+    const updateResult = await Notification.updateMany(
+      {
+        _id: { $in: validObjectIds },
+        userId: req.user._id,
+        isRead: false,
+      },
+      { $set: { isRead: true, readAt: now } }
+    );
+
+    const unreadCount = await Notification.countDocuments({
+      userId: req.user._id,
+      isRead: false,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Selected notifications marked as read',
+      updatedCount: updateResult.modifiedCount || 0,
+      unreadCount,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update notifications',
+      error: error.message,
     });
   }
 };
@@ -83,7 +144,8 @@ exports.markAllNotificationsAsRead = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: 'All notifications marked as read',
-      updatedCount: updateResult.modifiedCount || 0
+      updatedCount: updateResult.modifiedCount || 0,
+      unreadCount: 0,
     });
   } catch (error) {
     return res.status(500).json({

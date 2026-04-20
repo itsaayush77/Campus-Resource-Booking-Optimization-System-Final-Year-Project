@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { LuBell, LuBellRing, LuCheckCheck, LuCircleAlert, LuCircleCheckBig, LuCircleX, LuRefreshCw, LuTriangleAlert } from 'react-icons/lu';
-import { getAllNotifications, markAsRead, markAllAsRead } from '../api/notificationApi';
+import { getAllNotifications, markAsRead, markAllAsRead, markManyAsRead } from '../api/notificationApi';
 import toast from 'react-hot-toast';
-import { subscribeToAppDataChanges } from '../utils/dataSync';
+import { signalAppDataChanged, subscribeToAppDataChanges } from '../utils/dataSync';
 import { getNotificationTarget } from '../utils/notificationRouting';
 
 const Notifications = () => {
@@ -13,6 +13,26 @@ const Notifications = () => {
   const [filter, setFilter] = useState('all');
   const navigate = useNavigate();
   const location = useLocation();
+
+  const markVisibleAsRead = useCallback(async (list) => {
+    const unreadIds = (Array.isArray(list) ? list : [])
+      .filter((notification) => !notification.isRead)
+      .map((notification) => notification._id);
+
+    if (unreadIds.length === 0) return;
+
+    const response = await markManyAsRead(unreadIds);
+    if (!response.success) return;
+
+    setNotifications((current) =>
+      current.map((notification) =>
+        unreadIds.includes(notification._id)
+          ? { ...notification, isRead: true, readAt: notification.readAt || new Date().toISOString() }
+          : notification
+      )
+    );
+    signalAppDataChanged('notifications');
+  }, []);
 
   const fetchNotifications = useCallback(async ({ showLoader = false, silent = false } = {}) => {
     try {
@@ -25,7 +45,9 @@ const Notifications = () => {
       const response = await getAllNotifications();
 
       if (response.success) {
-        setNotifications(Array.isArray(response.notifications) ? response.notifications : []);
+        const fetchedNotifications = Array.isArray(response.notifications) ? response.notifications : [];
+        setNotifications(fetchedNotifications);
+        await markVisibleAsRead(fetchedNotifications);
       } else {
         if (!silent) {
           toast.error(response.message || 'Failed to load notifications');
@@ -40,7 +62,7 @@ const Notifications = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [markVisibleAsRead]);
 
   useEffect(() => {
     fetchNotifications({ showLoader: true });
@@ -87,6 +109,7 @@ const Notifications = () => {
               : notification
           )
         );
+        signalAppDataChanged('notifications');
       } else {
         toast.error(response.message || 'Failed to mark as read');
       }
@@ -109,6 +132,7 @@ const Notifications = () => {
             readAt: notification.readAt || new Date().toISOString(),
           }))
         );
+        signalAppDataChanged('notifications');
       } else {
         toast.error(response.message || 'Failed to mark all as read');
       }

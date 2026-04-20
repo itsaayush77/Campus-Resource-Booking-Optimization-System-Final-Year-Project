@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { LuBell, LuBellRing, LuCircleAlert, LuCircleCheckBig, LuCircleX, LuTriangleAlert } from 'react-icons/lu';
-import { getAllNotifications, markAsRead } from '../api/notificationApi';
-import { subscribeToAppDataChanges } from '../utils/dataSync';
+import { getAllNotifications, markAllAsRead, markAsRead } from '../api/notificationApi';
+import { signalAppDataChanged, subscribeToAppDataChanges } from '../utils/dataSync';
 import { getNotificationTarget } from '../utils/notificationRouting';
 
 const NotificationBell = () => {
@@ -61,7 +61,10 @@ const NotificationBell = () => {
   const handleNotificationClick = async (notification) => {
     if (!notification.isRead) {
       try {
-        await markAsRead(notification._id);
+        const response = await markAsRead(notification._id);
+        if (!response.success) {
+          return;
+        }
         setNotifications((current) =>
           current.map((item) =>
             item._id === notification._id
@@ -69,6 +72,7 @@ const NotificationBell = () => {
               : item
           )
         );
+        signalAppDataChanged('notifications');
       } catch (error) {
         console.error('Error marking notification as read:', error);
       }
@@ -133,6 +137,34 @@ const NotificationBell = () => {
         .slice(0, 3),
     [notifications]
   );
+
+  useEffect(() => {
+    if (!showDropdown) return;
+
+    const hasUnreadNotifications = notifications.some((notification) => !notification.isRead);
+
+    if (!hasUnreadNotifications) return;
+
+    let cancelled = false;
+
+    (async () => {
+      const response = await markAllAsRead();
+      if (cancelled || !response.success) return;
+
+      setNotifications((current) =>
+        current.map((item) =>
+          !item.isRead
+            ? { ...item, isRead: true, readAt: item.readAt || new Date().toISOString() }
+            : item
+        )
+      );
+      signalAppDataChanged('notifications');
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [notifications, showDropdown]);
 
   return (
     <div className="relative">
