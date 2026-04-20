@@ -1,16 +1,69 @@
 const mongoose = require('mongoose');
 const Booking = require('../models/Bookings');
 
+const STAFF_VISIBLE_BOOKING_STATUSES = ['pending', 'approved', 'completed', 'rejected', 'cancelled', 'no_show'];
+
+const baseStaffBookingPopulate = (query) =>
+  query
+    .populate('userId', 'name email phoneNumber department')
+    .populate('resourceId', 'name location capacity type category')
+    .populate('reviewedBy', 'name email role');
+
+// @desc    Get staff-visible bookings for review and monitoring
+// @route   GET /api/staff/bookings/review?status=all|pending|approved|completed
+// @access  Private/Staff
+exports.getStaffReviewBookings = async (req, res) => {
+  try {
+    const requestedStatus = String(req.query?.status || 'all').trim().toLowerCase();
+
+    const statuses =
+      requestedStatus === 'pending'
+        ? ['pending']
+        : requestedStatus === 'approved'
+          ? ['approved']
+          : requestedStatus === 'completed'
+            ? ['completed']
+          : STAFF_VISIBLE_BOOKING_STATUSES;
+
+    const bookings = await baseStaffBookingPopulate(
+      Booking.find({ status: { $in: statuses } })
+    ).sort({ startTime: 1, createdAt: -1 });
+
+    const counts = bookings.reduce(
+      (accumulator, booking) => {
+        if (booking.status === 'pending') accumulator.pending += 1;
+        if (booking.status === 'approved') accumulator.approved += 1;
+        if (booking.status === 'completed') accumulator.completed += 1;
+        if (booking.status === 'rejected') accumulator.rejected += 1;
+        accumulator.total += 1;
+        return accumulator;
+      },
+      { pending: 0, approved: 0, completed: 0, rejected: 0, total: 0 }
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: `Found ${counts.total} staff-visible booking(s)`,
+      counts,
+      bookings,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch staff review bookings',
+      error: error.message,
+    });
+  }
+};
+
 // @desc    Get all pending bookings for staff review queue
 // @route   GET /api/staff/bookings/pending
 // @access  Private/Staff
 exports.getStaffPendingBookings = async (req, res) => {
   try {
-    const bookings = await Booking.find({ status: 'pending' })
-      .populate('userId', 'name email phoneNumber department')
-      .populate('resourceId', 'name location capacity type category')
-      .populate('reviewedBy', 'name email role')
-      .sort({ createdAt: -1 });
+    const bookings = await baseStaffBookingPopulate(
+      Booking.find({ status: 'pending' })
+    ).sort({ createdAt: -1 });
 
     return res.status(200).json({
       success: true,

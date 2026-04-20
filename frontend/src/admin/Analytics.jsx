@@ -19,9 +19,13 @@ import {
   LuActivity,
   LuCalendarRange,
   LuClock3,
+  LuGauge,
   LuRefreshCw,
   LuShieldAlert,
   LuSparkles,
+  LuTrendingUp,
+  LuWaypoints,
+  LuChartColumn,
 } from 'react-icons/lu';
 import { getAnalyticsSummary } from '../api/analyticsApi';
 
@@ -35,6 +39,16 @@ const STATUS_COLORS = {
 };
 
 const formatHour = (hour) => `${String(hour).padStart(2, '0')}:00`;
+
+const formatPercent = (value) => `${Number(value || 0).toFixed(0)}%`;
+
+const formatMinutes = (minutes) => {
+  const total = Math.max(0, Math.round(minutes || 0));
+  if (total < 60) return `${total} min`;
+  const hours = Math.floor(total / 60);
+  const remaining = total % 60;
+  return remaining > 0 ? `${hours}h ${remaining}m` : `${hours}h`;
+};
 
 const formatCompactDate = (value) => {
   const date = new Date(value);
@@ -57,6 +71,27 @@ const ChartTooltip = ({ active, payload, label }) => {
     <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-soft">
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{displayLabel}</p>
       <p className="mt-1 text-sm font-bold text-slate-900">{entry.value} bookings</p>
+    </div>
+  );
+};
+
+const MultiSeriesTooltip = ({ active, payload, label }) => {
+  if (!active || !payload?.length) return null;
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-soft">
+      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{label}</p>
+      <div className="mt-2 grid gap-2">
+        {payload.map((entry) => (
+          <div key={entry.dataKey} className="flex items-center justify-between gap-4 text-sm">
+            <span className="flex items-center gap-2 font-medium text-slate-600">
+              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
+              {entry.name}
+            </span>
+            <span className="font-bold text-slate-900">{entry.value}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };
@@ -96,6 +131,17 @@ const Analytics = () => {
   const weekCountsByStatus = summary?.weekCountsByStatus || {};
   const todayBookings = summary?.todayBookings || 0;
   const weekBookings = summary?.weekBookings || 0;
+  const actualUsage = summary?.actualUsage || {};
+  const usageInsight = summary?.usageInsight || null;
+  const checkedInCount = actualUsage.checkedInCount || 0;
+  const completedUsageCount = actualUsage.completedUsageCount || 0;
+  const bookedForUseCount = actualUsage.bookedForUseCount || 0;
+  const utilizationRate = actualUsage.utilizationRate || 0;
+  const durationUtilizationRate = actualUsage.durationUtilizationRate || 0;
+  const scheduledUsageMinutes = actualUsage.scheduledUsageMinutes || 0;
+  const actualUsageMinutes = actualUsage.actualUsageMinutes || 0;
+  const bookedVsUsedGap = Math.max(0, bookedForUseCount - checkedInCount);
+  const peakActualUsagePeriod = actualUsage.peakActualUsagePeriod || null;
 
   const pieData = useMemo(
     () =>
@@ -137,6 +183,63 @@ const Analytics = () => {
       })),
     [summary]
   );
+
+  const usageByDay = useMemo(
+    () =>
+      (actualUsage?.usageByDay || []).map((entry) => ({
+        date: formatCompactDate(entry.date),
+        booked: entry.bookedCount || 0,
+        used: entry.usedCount || 0,
+        completed: entry.completedCount || 0,
+      })),
+    [actualUsage]
+  );
+
+  const peakActualUsageHours = useMemo(
+    () =>
+      (actualUsage?.peakActualUsageHours || []).map((entry) => ({
+        hour: formatHour(entry.hour),
+        checkIns: entry.count || 0,
+      })),
+    [actualUsage]
+  );
+
+  const underutilizedResources = actualUsage?.underutilizedResources || [];
+
+  const actualUsageCards = [
+    {
+      label: 'Checked In',
+      value: checkedInCount,
+      hint: 'Bookings that reached verified check-in',
+      accent: 'from-cyan-500 via-sky-500 to-blue-600',
+      ring: 'border-cyan-200/70',
+      icon: LuWaypoints,
+    },
+    {
+      label: 'Completed Usage',
+      value: completedUsageCount,
+      hint: 'Bookings that were checked out successfully',
+      accent: 'from-emerald-500 via-teal-500 to-green-600',
+      ring: 'border-emerald-200/70',
+      icon: LuActivity,
+    },
+    {
+      label: 'Utilization Rate',
+      value: formatPercent(utilizationRate),
+      hint: 'Checked-in bookings compared with confirmed usable bookings',
+      accent: 'from-violet-500 via-indigo-500 to-blue-600',
+      ring: 'border-violet-200/70',
+      icon: LuGauge,
+    },
+    {
+      label: 'Booked vs Used',
+      value: `${checkedInCount}/${bookedForUseCount}`,
+      hint: bookedVsUsedGap > 0 ? `${bookedVsUsedGap} confirmed bookings were not used` : 'All confirmed bookings were used',
+      accent: 'from-amber-400 via-orange-500 to-rose-500',
+      ring: 'border-orange-200/70',
+      icon: LuChartColumn,
+    },
+  ];
 
   const statCards = [
     {
@@ -189,7 +292,7 @@ const Analytics = () => {
               Analytics
             </h1>
             <p className="mt-3 text-lg text-gray-600">
-              Explore booking demand, resource popularity, and operational trends.
+              Explore booking demand, actual usage behaviour, and resource performance in one place.
             </p>
           </div>
 
@@ -272,6 +375,92 @@ const Analytics = () => {
               </div>
             </div>
           ))}
+        </div>
+
+        <div className="relative mb-8 overflow-hidden rounded-[30px] border border-slate-200/80 bg-white/95 p-6 shadow-soft backdrop-blur">
+          <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-cyan-500 via-blue-600 to-violet-600" />
+          <div className="absolute -right-20 top-10 h-44 w-44 rounded-full bg-cyan-100/70 blur-3xl" />
+          <div className="absolute -bottom-20 left-10 h-48 w-48 rounded-full bg-violet-100/60 blur-3xl" />
+
+          <div className="relative">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="max-w-2xl">
+                <p className="text-sm font-semibold uppercase tracking-[0.24em] text-cyan-700">Actual Usage Lens</p>
+                <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-900">How bookings turn into real usage</h2>
+                <p className="mt-3 text-sm leading-6 text-slate-600">
+                  These metrics reuse your existing approval, check-in, and check-out data to show how many confirmed bookings were actually used and where capacity may be underperforming.
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/90 px-4 py-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Peak Actual Usage</p>
+                <p className="mt-2 text-2xl font-black text-slate-900">
+                  {peakActualUsagePeriod ? formatHour(peakActualUsagePeriod.hour) : 'No data'}
+                </p>
+                <p className="mt-1 text-sm text-slate-600">
+                  {peakActualUsagePeriod
+                    ? `${peakActualUsagePeriod.count} verified check-ins at this hour`
+                    : 'Verified check-ins will appear here once usage is recorded.'}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 grid gap-4 xl:grid-cols-[1.4fr,0.8fr]">
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                {actualUsageCards.map((card) => (
+                  <div
+                    key={card.label}
+                    className={`relative overflow-hidden rounded-[24px] border ${card.ring} bg-gradient-to-br ${card.accent} p-5 text-white shadow-[0_18px_40px_-28px_rgba(15,23,42,0.45)]`}
+                  >
+                    <div className="absolute -right-8 -top-8 h-24 w-24 rounded-full bg-white/12 blur-2xl" />
+                    <div className="relative flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/80">{card.label}</p>
+                        <p className="mt-4 text-4xl font-black tracking-tight text-white">{card.value}</p>
+                        <p className="mt-3 text-sm text-white/85">{card.hint}</p>
+                      </div>
+                      <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15 backdrop-blur-sm">
+                        <card.icon className="h-6 w-6 text-white" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="rounded-[24px] border border-slate-200 bg-slate-950 p-5 text-white shadow-[0_20px_45px_-28px_rgba(15,23,42,0.6)]">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-300">Trend Insight</p>
+                    <h3 className="mt-3 text-2xl font-black tracking-tight text-white">Recent usage direction</h3>
+                  </div>
+                  <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10">
+                    <LuTrendingUp className="h-6 w-6 text-cyan-300" />
+                  </div>
+                </div>
+
+                <p className="mt-4 text-sm leading-6 text-slate-200">
+                  {usageInsight?.body || 'Recent usage insight will appear here once enough verified check-ins are available.'}
+                </p>
+
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Scheduled Time</p>
+                    <p className="mt-2 text-2xl font-black text-white">{formatMinutes(scheduledUsageMinutes)}</p>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Actual Time Used</p>
+                    <p className="mt-2 text-2xl font-black text-white">{formatMinutes(actualUsageMinutes)}</p>
+                  </div>
+                </div>
+
+                <div className="mt-4 rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200">Duration Utilization</p>
+                  <p className="mt-1 text-lg font-bold text-white">{formatPercent(durationUtilizationRate)}</p>
+                  <p className="mt-1 text-sm text-slate-200">Actual used minutes compared with total confirmed booked minutes.</p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="grid gap-4 mb-8 sm:grid-cols-2 xl:grid-cols-4">
@@ -407,6 +596,117 @@ const Analytics = () => {
                   </div>
                 )}
               </div>
+            </div>
+
+            <div className="grid gap-8 xl:grid-cols-2">
+              <div className="chart-card">
+                <h2 className="text-2xl font-bold text-gray-900">Booked vs Actually Used</h2>
+                <p className="mt-1 text-sm text-gray-600">
+                  Compare confirmed usable bookings against verified usage across the selected period.
+                </p>
+                {usageByDay.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={320}>
+                    <LineChart data={usageByDay}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                      <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                      <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                      <Tooltip content={<MultiSeriesTooltip />} />
+                      <Legend formatter={(value) => <span className="text-xs font-medium text-slate-600">{value}</span>} />
+                      <Line type="monotone" dataKey="booked" name="Booked" stroke="#4f46e5" strokeWidth={3} dot={{ r: 3 }} />
+                      <Line type="monotone" dataKey="used" name="Checked In" stroke="#06b6d4" strokeWidth={3} dot={{ r: 3 }} />
+                      <Line type="monotone" dataKey="completed" name="Completed" stroke="#10b981" strokeWidth={3} dot={{ r: 3 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-[320px] text-gray-400">
+                    No actual-usage trend data available yet.
+                  </div>
+                )}
+              </div>
+
+              <div className="chart-card">
+                <h2 className="text-2xl font-bold text-gray-900">Peak Actual Usage Periods</h2>
+                <p className="mt-1 text-sm text-gray-600">
+                  Verified check-ins by hour help reveal when resources are truly being used.
+                </p>
+                {peakActualUsageHours.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={320}>
+                    <BarChart data={peakActualUsageHours}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                      <XAxis dataKey="hour" tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                      <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                      <Tooltip content={<MultiSeriesTooltip />} />
+                      <Bar dataKey="checkIns" name="Verified check-ins" radius={[8, 8, 0, 0]} fill="#0ea5e9" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-[320px] text-gray-400">
+                    No verified check-in pattern available yet.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="chart-card">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">Underutilized Resources</h2>
+                  <p className="mt-1 text-sm text-gray-600">
+                    Resources with repeated confirmed bookings but weaker real usage are highlighted here.
+                  </p>
+                </div>
+                <div className="rounded-full bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-900">
+                  {underutilizedResources.length > 0
+                    ? `${underutilizedResources.length} resource${underutilizedResources.length > 1 ? 's' : ''} need attention`
+                    : 'No immediate underutilization signal'}
+                </div>
+              </div>
+
+              {underutilizedResources.length > 0 ? (
+                <div className="mt-6 grid gap-4 lg:grid-cols-2">
+                  {underutilizedResources.map((resource) => (
+                    <div key={resource.resourceId} className="rounded-[22px] border border-slate-200 bg-slate-50/90 p-5">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <h3 className="text-lg font-bold text-slate-900">{resource.resourceName}</h3>
+                          <p className="mt-1 text-sm text-slate-600">
+                            {resource.usedCount} used out of {resource.bookedCount} confirmed bookings
+                          </p>
+                        </div>
+                        <span className="rounded-full bg-white px-3 py-1 text-sm font-bold text-slate-900 shadow-soft">
+                          {formatPercent(resource.utilizationRate)}
+                        </span>
+                      </div>
+
+                      <div className="mt-4 h-2 rounded-full bg-slate-200">
+                        <div
+                          className="h-2 rounded-full bg-gradient-to-r from-amber-400 via-orange-500 to-rose-500"
+                          style={{ width: `${Math.min(resource.utilizationRate, 100)}%` }}
+                        />
+                      </div>
+
+                      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                        <div className="rounded-2xl bg-white px-4 py-3">
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Completed</p>
+                          <p className="mt-2 text-xl font-black text-slate-900">{resource.completedCount}</p>
+                        </div>
+                        <div className="rounded-2xl bg-white px-4 py-3">
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Booked Time</p>
+                          <p className="mt-2 text-xl font-black text-slate-900">{formatMinutes(resource.scheduledMinutes)}</p>
+                        </div>
+                        <div className="rounded-2xl bg-white px-4 py-3">
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Actual Time</p>
+                          <p className="mt-2 text-xl font-black text-slate-900">{formatMinutes(resource.actualUsageMinutes)}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-6 rounded-[24px] border border-emerald-200 bg-emerald-50/70 p-6 text-emerald-900">
+                  Current tracked resources are being used consistently enough that none are flagged as underutilized in this range.
+                </div>
+              )}
             </div>
           </div>
         )}

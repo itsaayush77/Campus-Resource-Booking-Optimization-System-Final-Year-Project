@@ -3,6 +3,14 @@ import api from './api';
 const API_URL = '/staff';
 
 const staffApi = {
+  // Get staff-visible bookings for review and monitoring
+  getStaffReviewBookings: async (status = 'all') => {
+    const response = await api.get(`${API_URL}/bookings/review`, {
+      params: { status },
+    });
+    return response;
+  },
+
   // Get pending bookings (read-only view for staff)
   getStaffPendingBookings: async () => {
     const response = await api.get(`${API_URL}/bookings/pending`);

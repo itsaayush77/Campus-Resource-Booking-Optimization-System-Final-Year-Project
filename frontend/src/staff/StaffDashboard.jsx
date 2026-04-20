@@ -1,8 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import { LuChartColumn as ChartColumn, LuClock3, LuInfo, LuRefreshCw } from 'react-icons/lu';
+import { LuChartColumn as ChartColumn, LuCircleCheckBig, LuClock3, LuInfo, LuRefreshCw } from 'react-icons/lu';
 import staffApi from '../api/staffApi';
 import Loading from '../components/Loading';
+import { signalAppDataChanged, subscribeToAppDataChanges } from '../utils/dataSync';
 
 const recommendationOptions = [
   { value: 'no_recommendation', label: 'No Recommendation' },
@@ -28,6 +29,21 @@ const formatDateTime = (value) => {
   return date.toLocaleString();
 };
 
+const normalizeStatus = (value) =>
+  String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '_');
+
+const STATUS_BADGES = {
+  pending: 'bg-amber-100 text-amber-900',
+  approved: 'bg-green-100 text-green-900',
+  completed: 'bg-blue-100 text-blue-900',
+  rejected: 'bg-red-100 text-red-900',
+  cancelled: 'bg-gray-100 text-gray-800',
+  no_show: 'bg-orange-100 text-orange-900',
+};
+
 const isToday = (value) => {
   if (!value) return false;
   const date = new Date(value);
@@ -44,8 +60,9 @@ const StaffDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [savingId, setSavingId] = useState(null);
+  const [viewFilter, setViewFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [pendingBookings, setPendingBookings] = useState([]);
+  const [reviewBookings, setReviewBookings] = useState([]);
   const [analytics, setAnalytics] = useState(null);
   const [reviewDrafts, setReviewDrafts] = useState({});
 
@@ -64,7 +81,7 @@ const StaffDashboard = () => {
     });
   };
 
-  const fetchDashboardData = async ({ silent = false } = {}) => {
+  const fetchDashboardData = useCallback(async ({ silent = false } = {}) => {
     if (silent) {
       setRefreshing(true);
     } else {
@@ -73,53 +90,90 @@ const StaffDashboard = () => {
 
     try {
       const [bookingsRes, analyticsRes] = await Promise.all([
-        staffApi.getStaffPendingBookings(),
+        staffApi.getStaffReviewBookings('all'),
         staffApi.getStaffAnalytics(),
       ]);
 
       const bookings = bookingsRes.data.bookings || [];
-      setPendingBookings(bookings);
+      setReviewBookings(bookings);
       setAnalytics(analyticsRes.data.analytics || {});
       syncDrafts(bookings);
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to load staff review dashboard');
+      if (!silent) {
+        toast.error(error.response?.data?.message || 'Failed to load staff review dashboard');
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchDashboardData();
-  }, []);
+  }, [fetchDashboardData]);
+
+  useEffect(() => {
+    const refreshSilently = () => {
+      fetchDashboardData({ silent: true });
+    };
+
+    const interval = window.setInterval(refreshSilently, 45000);
+    const unsubscribe = subscribeToAppDataChanges((event) => {
+      const scope = event?.scope || 'all';
+      if (scope === 'all' || scope === 'bookings' || scope === 'admin-bookings' || scope === 'booking-history') {
+        refreshSilently();
+      }
+    });
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshSilently();
+      }
+    };
+
+    window.addEventListener('focus', refreshSilently);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.clearInterval(interval);
+      unsubscribe();
+      window.removeEventListener('focus', refreshSilently);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [fetchDashboardData]);
 
   const filteredBookings = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
-    if (!query) return pendingBookings;
+    const statusFiltered =
+      viewFilter === 'pending'
+        ? reviewBookings.filter((booking) => normalizeStatus(booking.status) === 'pending')
+        : viewFilter === 'approved'
+          ? reviewBookings.filter((booking) => normalizeStatus(booking.status) === 'approved')
+          : viewFilter === 'completed'
+            ? reviewBookings.filter((booking) => normalizeStatus(booking.status) === 'completed')
+            : viewFilter === 'rejected'
+              ? reviewBookings.filter((booking) => normalizeStatus(booking.status) === 'rejected')
+          : reviewBookings;
 
-    return pendingBookings.filter((booking) => {
+    if (!query) return statusFiltered;
+
+    return statusFiltered.filter((booking) => {
       const resourceName = booking.resourceId?.name || '';
       const userName = booking.userId?.name || '';
       const purpose = booking.purpose || '';
       return `${resourceName} ${userName} ${purpose}`.toLowerCase().includes(query);
     });
-  }, [pendingBookings, searchTerm]);
+  }, [reviewBookings, searchTerm, viewFilter]);
 
   const summary = useMemo(() => {
-    const pendingRequests = pendingBookings.length;
-    const reviewedToday = pendingBookings.filter((booking) => isToday(booking.reviewedAt)).length;
-    const urgentItems = pendingBookings.filter((booking) => {
-      const start = new Date(booking.startTime);
-      if (Number.isNaN(start.getTime())) return false;
-      const diff = start.getTime() - Date.now();
-      return diff >= 0 && diff <= 24 * 60 * 60 * 1000;
-    }).length;
-    const totalUnderReview = pendingBookings.filter(
-      (booking) => booking.staffRecommendation !== 'no_recommendation' || Boolean(booking.staffComment)
-    ).length;
+    const pendingRequests = reviewBookings.filter((booking) => normalizeStatus(booking.status) === 'pending').length;
+    const approvedRequests = reviewBookings.filter((booking) => normalizeStatus(booking.status) === 'approved').length;
+    const completedRequests = reviewBookings.filter((booking) => normalizeStatus(booking.status) === 'completed').length;
+    const rejectedRequests = reviewBookings.filter((booking) => normalizeStatus(booking.status) === 'rejected').length;
+    const reviewedToday = reviewBookings.filter((booking) => isToday(booking.reviewedAt)).length;
 
-    return { pendingRequests, reviewedToday, urgentItems, totalUnderReview };
-  }, [pendingBookings]);
+    return { pendingRequests, approvedRequests, completedRequests, rejectedRequests, reviewedToday };
+  }, [reviewBookings]);
 
   const updateDraft = (bookingId, field, value) => {
     setReviewDrafts((previous) => ({
@@ -145,9 +199,10 @@ const StaffDashboard = () => {
       });
 
       const updatedBooking = response.data.booking;
-      setPendingBookings((previous) =>
+      setReviewBookings((previous) =>
         previous.map((booking) => (booking._id === bookingId ? updatedBooking : booking))
       );
+      signalAppDataChanged('admin-bookings');
       toast.success('Review note saved for admin review');
     } catch (error) {
       toast.error(error.response?.data?.message || 'Could not save review note');
@@ -196,12 +251,13 @@ const StaffDashboard = () => {
           </div>
         </div>
 
-        <div className="grid gap-4 mb-8 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 mb-8 sm:grid-cols-2 xl:grid-cols-5">
           {[
             { label: 'Pending Requests', value: summary.pendingRequests, icon: <LuClock3 className="w-6 h-6" /> },
+            { label: 'Approved Requests', value: summary.approvedRequests, icon: <LuCircleCheckBig className="w-6 h-6" /> },
+            { label: 'Completed Requests', value: summary.completedRequests, icon: <ChartColumn className="w-6 h-6" /> },
+            { label: 'Rejected Requests', value: summary.rejectedRequests, icon: <ChartColumn className="w-6 h-6" /> },
             { label: 'Reviewed Today', value: summary.reviewedToday, icon: <ChartColumn className="w-6 h-6" /> },
-            { label: 'Urgent Items', value: summary.urgentItems, icon: <LuClock3 className="w-6 h-6" /> },
-            { label: 'Total Under Review', value: summary.totalUnderReview, icon: <ChartColumn className="w-6 h-6" /> },
           ].map((card) => (
             <div key={card.label} className="p-5 bg-white border border-gray-200 shadow-sm rounded-2xl">
               <div className="flex items-center justify-between">
@@ -221,21 +277,45 @@ const StaffDashboard = () => {
           <div className="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-slate-50 to-blue-50/60">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <h2 className="text-xl font-bold text-gray-900">Pending Requests</h2>
-                <p className="mt-1 text-sm text-gray-600">Add optional recommendation and comments for admin review.</p>
+                <h2 className="text-xl font-bold text-gray-900">Review and Monitoring Queue</h2>
+                <p className="mt-1 text-sm text-gray-600">Monitor pending, approved, completed, and finalized bookings. Recommendation notes are only for pending requests.</p>
               </div>
-              <input
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Search by user, resource, or purpose"
-                className="w-full lg:w-80 rounded-xl border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-100"
-              />
+              <div className="flex flex-col w-full gap-3 lg:w-auto lg:items-end">
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { key: 'all', label: `All (${reviewBookings.length})` },
+                    { key: 'pending', label: `Pending (${summary.pendingRequests})` },
+                    { key: 'approved', label: `Approved (${summary.approvedRequests})` },
+                    { key: 'completed', label: `Completed (${summary.completedRequests})` },
+                    { key: 'rejected', label: `Rejected (${summary.rejectedRequests})` },
+                  ].map((item) => (
+                    <button
+                      key={item.key}
+                      type="button"
+                      onClick={() => setViewFilter(item.key)}
+                      className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition ${
+                        viewFilter === item.key
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-white text-gray-700 border border-gray-300 hover:border-blue-300'
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+                <input
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  placeholder="Search by user, resource, or purpose"
+                  className="w-full lg:w-80 rounded-xl border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-100"
+                />
+              </div>
             </div>
           </div>
 
           {filteredBookings.length === 0 ? (
             <div className="p-10 text-center">
-              <p className="text-lg font-medium text-gray-700">No pending requests match this view.</p>
+              <p className="text-lg font-medium text-gray-700">No bookings match this view.</p>
               <p className="mt-2 text-gray-500">Try a different search term or refresh the review queue.</p>
             </div>
           ) : (
@@ -278,61 +358,99 @@ const StaffDashboard = () => {
                       </div>
 
                       <div className="w-full lg:w-auto">
-                        <span className="inline-flex rounded-full px-3 py-1.5 text-xs font-bold uppercase tracking-[0.12em] bg-amber-100 text-amber-900">
-                          Pending Admin Decision
-                        </span>
-                        <div className="mt-2">
-                          <span className={`inline-flex rounded-full px-3 py-1.5 text-xs font-bold ${recommendationStyle(booking.staffRecommendation)}`}>
-                            {recommendationLabel(booking.staffRecommendation)}
-                          </span>
-                          {booking.reviewedAt && (
-                            <p className="mt-2 text-xs text-gray-500">
-                              Last reviewed: {formatDateTime(booking.reviewedAt)}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
+                        {(() => {
+                          const normalizedStatus = normalizeStatus(booking.status);
+                          const isPending = normalizedStatus === 'pending';
+                          const badgeClass = STATUS_BADGES[normalizedStatus] || 'bg-slate-100 text-slate-800';
+                          const badgeText =
+                            normalizedStatus === 'no_show'
+                              ? 'No-Show'
+                              : normalizedStatus.replace('_', ' ');
 
-                    <div className="grid gap-3 mt-4 md:grid-cols-3">
-                      <div>
-                        <label className="block text-xs font-semibold uppercase tracking-[0.12em] text-gray-500">Recommendation</label>
-                        <select
-                          value={draft.recommendation}
-                          onChange={(event) => updateDraft(booking._id, 'recommendation', event.target.value)}
-                          className="w-full mt-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-100"
+                          return (
+                            <span
+                              className={`inline-flex rounded-full px-3 py-1.5 text-xs font-bold uppercase tracking-[0.12em] ${badgeClass}`}
+                            >
+                              {badgeText}
+                            </span>
+                          );
+                        })()}
+                        <p className="mt-2 text-xs text-gray-500">
+                          {normalizeStatus(booking.status) === 'pending'
+                            ? 'Pending admin decision'
+                            : normalizeStatus(booking.status) === 'approved'
+                              ? 'Approved by admin'
+                              : normalizeStatus(booking.status) === 'completed'
+                                ? 'Completed after approval'
+                                : normalizeStatus(booking.status) === 'rejected'
+                                  ? 'Rejected by admin'
+                                  : normalizeStatus(booking.status) === 'cancelled'
+                                    ? 'Cancelled booking'
+                                    : 'Attendance marked as no-show'}
+                        </p>
+                        <span
+                          className={`mt-2 inline-flex rounded-full px-3 py-1.5 text-xs font-bold ${recommendationStyle(booking.staffRecommendation)}`}
                         >
-                          {recommendationOptions.map((option) => (
-                            <option key={option.value} value={option.value}>{option.label}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="md:col-span-2">
-                        <label className="block text-xs font-semibold uppercase tracking-[0.12em] text-gray-500">Comment for admin (optional)</label>
-                        <textarea
-                          value={draft.comment}
-                          onChange={(event) => updateDraft(booking._id, 'comment', event.target.value.slice(0, 300))}
-                          rows={2}
-                          placeholder="Add context to support admin decision"
-                          className="w-full mt-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-100"
-                        />
-                        <p className="mt-1 text-xs text-gray-500">{draft.comment.length}/300</p>
+                          {recommendationLabel(booking.staffRecommendation)}
+                        </span>
+                        {booking.reviewedAt && (
+                          <p className="mt-2 text-xs text-gray-500">
+                            Last reviewed: {formatDateTime(booking.reviewedAt)}
+                          </p>
+                        )}
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center justify-between gap-3 mt-3">
-                      <p className="text-xs text-gray-500">
-                        This note supports review. Final approve/reject action remains admin-only.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => submitReview(booking._id)}
-                        disabled={savingId === booking._id}
-                        className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-400"
-                      >
-                        {savingId === booking._id ? 'Saving...' : 'Save Review Note'}
-                      </button>
-                    </div>
+                    {normalizeStatus(booking.status) === 'pending' ? (
+                      <>
+                        <div className="grid gap-3 mt-4 md:grid-cols-3">
+                          <div>
+                            <label className="block text-xs font-semibold uppercase tracking-[0.12em] text-gray-500">Recommendation</label>
+                            <select
+                              value={draft.recommendation}
+                              onChange={(event) => updateDraft(booking._id, 'recommendation', event.target.value)}
+                              className="w-full mt-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-100"
+                            >
+                              {recommendationOptions.map((option) => (
+                                <option key={option.value} value={option.value}>{option.label}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="md:col-span-2">
+                            <label className="block text-xs font-semibold uppercase tracking-[0.12em] text-gray-500">Comment for admin (optional)</label>
+                            <textarea
+                              value={draft.comment}
+                              onChange={(event) => updateDraft(booking._id, 'comment', event.target.value.slice(0, 300))}
+                              rows={2}
+                              placeholder="Add context to support admin decision"
+                              className="w-full mt-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-100"
+                            />
+                            <p className="mt-1 text-xs text-gray-500">{draft.comment.length}/300</p>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center justify-between gap-3 mt-3">
+                          <p className="text-xs text-gray-500">
+                            This note supports review. Final approve/reject action remains admin-only.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => submitReview(booking._id)}
+                            disabled={savingId === booking._id}
+                            className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-400"
+                          >
+                            {savingId === booking._id ? 'Saving...' : 'Save Review Note'}
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="mt-4 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">
+                        <p className="font-semibold">Monitoring view</p>
+                        <p className="mt-1 text-xs text-green-700">
+                          This booking is finalized and remains visible here for staff monitoring and follow-up.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -354,12 +472,12 @@ const StaffDashboard = () => {
                 <p className="mt-2 text-2xl font-bold text-green-700">{analytics.approvedBookings || 0}</p>
               </div>
               <div className="p-4 border border-gray-200 rounded-xl bg-gray-50">
-                <p className="text-xs font-semibold tracking-[0.12em] uppercase text-gray-500">Rejected</p>
-                <p className="mt-2 text-2xl font-bold text-red-700">{analytics.rejectedBookings || 0}</p>
+                <p className="text-xs font-semibold tracking-[0.12em] uppercase text-gray-500">Completed</p>
+                <p className="mt-2 text-2xl font-bold text-blue-700">{analytics.completedBookings || 0}</p>
               </div>
               <div className="p-4 border border-gray-200 rounded-xl bg-gray-50">
-                <p className="text-xs font-semibold tracking-[0.12em] uppercase text-gray-500">Utilization Rate</p>
-                <p className="mt-2 text-2xl font-bold text-blue-700">{analytics.utilizationRate || 0}%</p>
+                <p className="text-xs font-semibold tracking-[0.12em] uppercase text-gray-500">Rejected</p>
+                <p className="mt-2 text-2xl font-bold text-red-700">{analytics.rejectedBookings || 0}</p>
               </div>
             </div>
           </div>

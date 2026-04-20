@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { LuCircleCheckBig, LuCircleX, LuClock3, LuDownload, LuRefreshCw, LuUsers } from 'react-icons/lu';
 import { approveBooking, getAllBookings, rejectBooking } from '../api/adminApi';
@@ -91,6 +92,16 @@ const csvEscape = (value) => {
   return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 };
 
+const APPROVED_HISTORY_STATUSES = ['approved', 'completed', 'cancelled', 'no_show'];
+
+const matchesTabStatus = (booking, tab) => {
+  const normalizedStatus = normalizeStatus(booking.status);
+
+  if (tab === 'all') return true;
+  if (tab === 'approved') return APPROVED_HISTORY_STATUSES.includes(normalizedStatus);
+  return normalizedStatus === tab;
+};
+
 const BookingApprovals = () => {
   const [tab, setTab] = useState('pending');
   const [allBookings, setAllBookings] = useState([]);
@@ -164,9 +175,9 @@ const BookingApprovals = () => {
       allBookings.reduce(
         (accumulator, booking) => {
           const normalizedStatus = normalizeStatus(booking.status);
-          if (accumulator[normalizedStatus] !== undefined) {
-            accumulator[normalizedStatus] += 1;
-          }
+          if (normalizedStatus === 'pending') accumulator.pending += 1;
+          if (normalizedStatus === 'rejected') accumulator.rejected += 1;
+          if (APPROVED_HISTORY_STATUSES.includes(normalizedStatus)) accumulator.approved += 1;
           accumulator.all += 1;
           return accumulator;
         },
@@ -176,11 +187,7 @@ const BookingApprovals = () => {
   );
 
   const visibleBookings = useMemo(() => {
-    if (tab === 'all') {
-      return allBookings;
-    }
-
-    return allBookings.filter((booking) => normalizeStatus(booking.status) === tab);
+    return allBookings.filter((booking) => matchesTabStatus(booking, tab));
   }, [allBookings, tab]);
 
   const userLabel = (booking) =>
@@ -307,6 +314,12 @@ const BookingApprovals = () => {
           </div>
 
           <div className="flex flex-wrap gap-3">
+            <Link
+              to="/scan-qr"
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 text-base font-semibold text-white transition-all duration-200 shadow-lg rounded-xl bg-gradient-to-r from-slate-900 to-blue-900 hover:from-slate-800 hover:to-blue-800 hover:shadow-xl"
+            >
+              Open Scanner
+            </Link>
             <button
               type="button"
               onClick={exportVisibleBookingsCsv}
@@ -380,25 +393,28 @@ const BookingApprovals = () => {
             <div className="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-slate-50 to-blue-50/60">
               <h2 className="text-xl font-bold text-gray-900">
                 {tab === 'pending' && 'Pending booking requests'}
-                {tab === 'approved' && 'Approved booking history'}
+                {tab === 'approved' && 'Approved and completed booking history'}
                 {tab === 'rejected' && 'Rejected booking history'}
                 {tab === 'all' && 'All booking requests and decisions'}
               </h2>
               <p className="mt-1 text-sm text-gray-600">
                 {tab === 'pending'
                   ? 'Approve or reject requests below.'
-                  : 'This view keeps all past decisions visible for admin review.'}
+                  : tab === 'approved'
+                    ? 'This view keeps approved bookings and their later outcomes, including completed, cancelled, and no-show records.'
+                    : 'This view keeps all past decisions visible for admin review.'}
               </p>
             </div>
 
             <div className="overflow-hidden">
               <table className="w-full text-sm table-fixed lg:text-base">
                 <colgroup>
-                  <col className="w-[24%]" />
-                  <col className="w-[20%]" />
                   <col className="w-[18%]" />
-                  <col className="w-[18%]" />
-                  <col className="w-[10%]" />
+                  <col className="w-[14%]" />
+                  <col className="w-[16%]" />
+                  <col className="w-[14%]" />
+                  <col className="w-[11%]" />
+                  <col className="w-[17%]" />
                   <col className="w-[10%]" />
                 </colgroup>
                 <thead>
@@ -408,6 +424,7 @@ const BookingApprovals = () => {
                     <th className="px-4 py-3 font-bold">When</th>
                     <th className="px-4 py-3 font-bold">Purpose</th>
                     <th className="px-4 py-3 font-bold">Status</th>
+                    <th className="px-4 py-3 font-bold">Staff Review</th>
                     <th className="px-4 py-3 font-bold text-center">Actions</th>
                   </tr>
                 </thead>
@@ -446,6 +463,30 @@ const BookingApprovals = () => {
                             <p className="mt-0.5">{formatDecisionTime(booking)}</p>
                           </div>
                         )}
+                        {normalizeStatus(booking.status) === 'completed' && (
+                          <div className="mt-2 text-sm text-gray-600">
+                            <p className="font-semibold text-blue-700">Completed after approval</p>
+                            <p className="mt-0.5">{formatDecisionTime(booking)}</p>
+                            {booking.checkOutTime && (
+                              <p className="mt-1 text-gray-500">Checked out: {formatReviewTime(booking.checkOutTime)}</p>
+                            )}
+                          </div>
+                        )}
+                        {normalizeStatus(booking.status) === 'cancelled' && (
+                          <div className="mt-2 text-sm text-gray-600">
+                            <p className="font-semibold text-gray-700">Cancelled after approval</p>
+                            <p className="mt-0.5">{formatDecisionTime(booking)}</p>
+                            {booking.cancellationReason && (
+                              <p className="mt-1 text-gray-500 break-words">Reason: {booking.cancellationReason}</p>
+                            )}
+                          </div>
+                        )}
+                        {normalizeStatus(booking.status) === 'no_show' && (
+                          <div className="mt-2 text-sm text-gray-600">
+                            <p className="font-semibold text-orange-700">Approved but not checked in</p>
+                            <p className="mt-0.5">{formatDecisionTime(booking)}</p>
+                          </div>
+                        )}
                         {normalizeStatus(booking.status) === 'rejected' && (
                           <div className="mt-2 text-sm text-gray-600">
                             <p className="font-semibold text-red-700">Rejected</p>
@@ -463,31 +504,33 @@ const BookingApprovals = () => {
                             </p>
                           </div>
                         )}
-                        {!['approved', 'rejected', 'pending'].includes(normalizeStatus(booking.status)) && (
-                          <span className="block mt-2 text-sm text-gray-400">Pending decision</span>
-                        )}
                         {normalizeStatus(booking.status) === 'pending' && !hasApprovalWindowPassed(booking) && (
                           <span className="block mt-2 text-sm text-gray-400">Pending decision</span>
                         )}
-                        {(booking.staffRecommendation && booking.staffRecommendation !== 'no_recommendation') || booking.staffComment ? (
-                          <div className="p-2 mt-3 border border-blue-100 rounded-lg bg-blue-50">
-                            <p className="text-xs font-semibold tracking-[0.1em] uppercase text-blue-700">Staff Review</p>
-                            <span className={`mt-1 inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${recommendationStyle(booking.staffRecommendation)}`}>
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="overflow-hidden border border-blue-200 shadow-sm rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50">
+                          <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-blue-100 bg-white/60">
+                            <p className="text-[11px] font-bold tracking-[0.16em] uppercase text-blue-700">Staff Review</p>
+                            <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${recommendationStyle(booking.staffRecommendation)}`}>
                               {recommendationLabel(booking.staffRecommendation)}
                             </span>
-                            {booking.staffComment && (
-                              <p className="mt-1 text-xs leading-snug text-blue-900 break-words">
-                                {booking.staffComment}
-                              </p>
-                            )}
-                            {booking.reviewedAt && (
-                              <p className="mt-1 text-xs text-blue-700">
-                                Reviewed {formatReviewTime(booking.reviewedAt)}
-                                {isPopulatedObject(booking.reviewedBy) && booking.reviewedBy?.name ? ` by ${booking.reviewedBy.name}` : ''}
-                              </p>
-                            )}
                           </div>
-                        ) : null}
+                          <div className="px-3 py-2">
+                            <p className="text-xs leading-relaxed break-words text-slate-700">
+                              {booking.staffComment ? booking.staffComment : 'No comment provided.'}
+                            </p>
+                            <p className="mt-2 text-[11px] text-blue-700 break-words">
+                              {booking.reviewedAt
+                                ? `Reviewed ${formatReviewTime(booking.reviewedAt)}${
+                                    isPopulatedObject(booking.reviewedBy) && booking.reviewedBy?.name
+                                      ? ` by ${booking.reviewedBy.name}`
+                                      : ''
+                                  }`
+                                : 'Not reviewed by staff yet.'}
+                            </p>
+                          </div>
+                        </div>
                       </td>
                       <td className="px-4 py-4">
                         {normalizeStatus(booking.status) === 'pending' ? (
